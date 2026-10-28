@@ -1,0 +1,4 @@
+# /video-notes also needs the yt-dlp and ffmpeg command-line tools (brew install yt-dlp ffmpeg)
+pillow>=10
+imagehash>=4.3
+youtube-transcript-api>=0.6

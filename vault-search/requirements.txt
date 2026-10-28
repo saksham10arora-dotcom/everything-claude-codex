@@ -1,0 +1,10 @@
+# Vault search stack (installed into ~/.ecx/venv by: python3 scripts/install.py --with-search)
+chromadb>=1.5
+sentence-transformers>=5.0
+lightrag-hku>=1.4.16
+open_clip_torch>=3.0
+torch>=2.4
+pymupdf>=1.24
+aiohttp>=3.9
+numpy>=1.26
+pillow>=10

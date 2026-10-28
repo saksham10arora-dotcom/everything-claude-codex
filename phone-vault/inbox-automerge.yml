@@ -1,0 +1,32 @@
+name: inbox auto-merge
+
+# Phone agents (Codex in the ChatGPT app, Claude Code on the web) capture notes as
+# PRs that add one file under inbox/. Merge those automatically; anything that touches
+# other files waits for you.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  merge-inbox-only:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Merge if every changed file is inbox/*.md
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          files=$(gh pr view "$PR" -R "$REPO" --json files --jq '.files[].path')
+          echo "Changed files:"; echo "$files"
+          if [ -z "$files" ] || echo "$files" | grep -qvE '^inbox/[^/]+\.md$'; then
+            echo "Not an inbox-only capture, leaving it for review."
+            exit 0
+          fi
+          gh pr ready "$PR" -R "$REPO" 2>/dev/null || true
+          gh pr merge "$PR" -R "$REPO" --squash --delete-branch
