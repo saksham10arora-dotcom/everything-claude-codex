@@ -141,15 +141,6 @@ After every reply, your notes and a copy of your memory sync to your private Git
 - **[The longform guide](https://saksham.digital/blog/25_my_second_brain_has_two_ais):** how the whole system was built, what broke, and why.
 - **[agent-sync deep dive](https://github.com/saksham10arora-dotcom/agent-sync)**
 
-## Built with ECX
-
-| Project | What it is |
-|---|---|
-| [Margin](https://github.com/saksham10arora-dotcom/Margin) | Watch a lecture, get the notes in Obsidian: slides, diagrams, runnable code |
-| [Latch](https://github.com/saksham10arora-dotcom/latch) | Pins a YouTube lecture full screen; escape does nothing |
-| [agent-sync](https://github.com/saksham10arora-dotcom/agent-sync) | The Claude <-> Codex sync, standalone |
-| [mcp-doctor](https://github.com/saksham10arora-dotcom/mcp-doctor) | Finds why your AI's tools aren't showing up |
-| [Simple-HFT-Engine](https://github.com/saksham10arora-dotcom/Simple-HFT-Engine) | Lock-free C++20 matching engine, 2.7M ops/sec |
 
 ## Works great with
 
