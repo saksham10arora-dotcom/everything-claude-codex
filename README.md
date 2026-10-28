@@ -131,6 +131,8 @@ After every reply, your notes and a copy of your memory sync to your private Git
 - **MCP health:** refuses to call a server whose dependency is down (and tells you the fix) instead of letting it return empty answers.
 - **doctor:** 16+ checks across hooks, indexes, jobs and sync.
 
+<p align="center"><img src="assets/doctor.png" alt="ECX doctor output: every check passing" width="70%" /></p>
+
 ### 6. Skills that run your week
 `/boot` gives you a 30-second briefing. `/daily` starts the day. `/opps` is your opportunity pipeline with eligibility checks. `/outreach` and `/email` handle networking with a paper trail. `/content` and `/brand` are a content machine in your voice. `/catchup` continues another window's chat. `/ship` commits, pushes and proves it.
 
