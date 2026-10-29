@@ -176,6 +176,14 @@ class TestsBeforeDone(unittest.TestCase):
         self.assertIn("unittest", out["reason"])
         self.assertIn("test_login", out["reason"])
 
+    def test_missing_test_runner_does_not_block(self):
+        self.write("app.py", "x = 2\n")
+        env = {"HOME": self.home, "ECX_TEST_CMD": "ecx-no-such-test-runner"}
+        out = json.loads(run(os.path.join(HOOKS, "tests_before_done.py"),
+                             {"session_id": "s1", "cwd": self.repo, "stop_hook_active": False}, env))
+        self.assertNotIn("decision", out)
+        self.assertIn("command not found", out["systemMessage"])
+
     def test_off_switch_no_tests_and_non_git(self):
         self.write("app.py", "x = 2\n")
         self.assertEqual(self.stop(cmd=False), {})          # nothing to run

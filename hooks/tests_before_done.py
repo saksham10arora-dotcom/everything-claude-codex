@@ -13,6 +13,7 @@ Runs only in a git repo, only when something changed since the last green run
     $ECX_TEST_CMD
     package.json "test" script, pytest config, tests/ with test_*.py,
     Cargo.toml, go.mod, a Makefile with a "test:" target
+If the test runner itself is missing (exit 127) it tells you instead of blocking.
 After 3 failed tries in a row it lets the agent stop and tells you, instead of
 looping. Turn it off everywhere with ECX_TEST_ON_STOP=0.
 Never breaks a session: any error exits 0 silently.
@@ -144,6 +145,12 @@ def main():
     except subprocess.TimeoutExpired:
         save(state)
         say(systemMessage=f"ECX: tests timed out after {TIMEOUT}s (`{cmd}`), so they didn't block the stop.")
+        return
+
+    if p.returncode == 127:                     # the test runner isn't installed: nothing the agent broke
+        save(state)
+        say(systemMessage=f"ECX: couldn't run the tests (`{cmd}`: command not found). "
+                          "Install the project's dependencies to turn the check on.")
         return
 
     if p.returncode == 0:
