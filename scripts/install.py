@@ -125,6 +125,7 @@ def main():
     n += add_hooks(g, "PermissionRequest", f"{PY} {q(h + '/auto_allow_reads.py')}", None, 3)
     n += add_hooks(g, "Stop", f"{PY} {q(h + '/usage_tracker.py')}", None, 15)
     n += add_hooks(g, "Stop", f"{PY} {q(h + '/notify_done.py')}", None, 8)
+    n += add_hooks(g, "Stop", f"{PY} {q(h + '/tests_before_done.py')}", None, 600)
     if "statusLine" not in g:
         g["statusLine"] = {"type": "command", "command": f"bash {q(ECX + '/statusline/statusline.sh')}"}
         say("+", "status line: context bar + unread agent mail")
@@ -156,6 +157,13 @@ def main():
         n += add_hooks(c, "Stop", f"({E} nohup bash {q(ECX + '/phone-vault/sync.sh')} >/dev/null 2>&1 &)", None, 5)
     save_json(cpath, c)
     say("+", f"{n} Codex hooks added to .codex/hooks.json (approve them once: run `codex`, type /hooks, press t)")
+
+    # Codex, every project: tests run before Codex can call a task done
+    cgpath = os.path.join(HOME, ".codex", "hooks.json")
+    cg = load_json(cgpath)
+    n = int(add_hooks(cg, "Stop", f"{PY} {q(h + '/tests_before_done.py')}", None, 600))
+    save_json(cgpath, cg)
+    say("+", f"{n} Codex hooks added to ~/.codex/hooks.json (tests before done; approve once in Codex: /hooks, press t)")
 
     # agent mail renders to a markdown file you can read
     os.makedirs(os.path.join(HOME, ".agent-sync"), exist_ok=True)

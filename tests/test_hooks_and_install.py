@@ -105,6 +105,86 @@ class McpHealthAndUsage(unittest.TestCase):
         self.assertEqual(row["models"]["claude-x"]["messages"], 1)
 
 
+class TestsBeforeDone(unittest.TestCase):
+    """Stop hook: the agent can't call it done while the project's tests fail."""
+
+    def setUp(self):
+        self.home = tempfile.mkdtemp()
+        self.repo = tempfile.mkdtemp()
+        self.runs = os.path.join(self.home, "runs")
+        for args in (["init", "-q"], ["config", "user.email", "t@t"], ["config", "user.name", "t"]):
+            subprocess.run(["git", "-C", self.repo, *args], check=True)
+        self.write("app.py", "x = 1\n")
+        subprocess.run(["git", "-C", self.repo, "add", "-A"], check=True)
+        subprocess.run(["git", "-C", self.repo, "commit", "-qm", "init"], check=True)
+
+    def write(self, name, text):
+        path = os.path.join(self.repo, name)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as f:
+            f.write(text)
+
+    def stop(self, code=1, active=False, cwd=None, cmd=True):
+        env = {"HOME": self.home}
+        if cmd:  # a test command that logs each run, prints a failure and exits with `code`
+            env["ECX_TEST_CMD"] = (f"{sys.executable} -c \"import sys; open(r'{self.runs}', 'a').write('x'); "
+                                   f"print('FAILED test_login'); sys.exit({code})\"")
+        out = run(os.path.join(HOOKS, "tests_before_done.py"),
+                  {"session_id": "s1", "cwd": cwd or self.repo, "stop_hook_active": active}, env)
+        return json.loads(out) if out else {}
+
+    def run_count(self):
+        if not os.path.exists(self.runs):
+            return 0
+        with open(self.runs) as f:
+            return len(f.read())
+
+    def test_untouched_repo_is_left_alone(self):
+        self.assertEqual(self.stop(), {})
+        self.assertEqual(self.run_count(), 0)
+
+    def test_failing_tests_send_the_agent_back(self):
+        self.write("app.py", "x = 2\n")
+        out = self.stop()
+        self.assertEqual(out["decision"], "block")
+        self.assertIn("FAILED test_login", out["reason"])
+        self.assertIn("Attempt 1 of 3", out["reason"])
+
+    def test_green_run_is_cached_until_something_changes(self):
+        self.write("app.py", "x = 2\n")
+        self.assertEqual(self.stop(code=0), {})
+        self.assertEqual(self.stop(code=0), {})
+        self.assertEqual(self.run_count(), 1)
+        self.write("notes.py", "y = 1\n")
+        self.assertEqual(self.stop(code=0), {})
+        self.assertEqual(self.run_count(), 2)
+
+    def test_gives_up_after_three_tries(self):
+        self.write("app.py", "x = 2\n")
+        self.assertEqual(self.stop()["decision"], "block")
+        self.assertEqual(self.stop(active=True)["decision"], "block")
+        self.assertEqual(self.stop(active=True)["decision"], "block")
+        out = self.stop(active=True)
+        self.assertNotIn("decision", out)
+        self.assertIn("still failing", out["systemMessage"])
+
+    def test_finds_python_tests_on_its_own(self):
+        self.write("tests/test_app.py", "import unittest\nclass T(unittest.TestCase):\n"
+                                        "    def test_login(self):\n        self.assertEqual(1, 2)\n")
+        out = self.stop(cmd=False)
+        self.assertEqual(out["decision"], "block")
+        self.assertIn("unittest", out["reason"])
+        self.assertIn("test_login", out["reason"])
+
+    def test_off_switch_no_tests_and_non_git(self):
+        self.write("app.py", "x = 2\n")
+        self.assertEqual(self.stop(cmd=False), {})          # nothing to run
+        self.write(".ecx/test-command", "off\n")
+        self.assertEqual(self.stop(), {})                   # switched off for this repo
+        self.assertEqual(self.stop(cwd=tempfile.mkdtemp()), {})  # not a git repo
+        self.assertEqual(self.run_count(), 0)
+
+
 class Install(unittest.TestCase):
     def test_install_is_idempotent_and_doctor_passes(self):
         home = tempfile.mkdtemp()

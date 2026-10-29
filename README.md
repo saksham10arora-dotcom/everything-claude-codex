@@ -24,12 +24,12 @@ you talk to either agent  ->  both remember  ->  your notes answer  ->  your pho
 | Included | Count | What it gives you |
 |---|---:|---|
 | Skills | **17** | `/boot`, `/daily`, `/catchup`, `/opps`, `/outreach`, `/content`, `/ship`, `/video-notes`, `/wiki` and more |
-| Hooks | **17** | Memory loading, a working danger guard, MCP health checks, AI-tell guard, usage tracking, done notifications |
+| Hooks | **19** | Memory loading, tests before "done", a working danger guard, MCP health checks, AI-tell guard, usage tracking |
 | Search engines | **3** | By meaning (ChromaDB), by relationship (LightRAG graph), by image (CLIP over your slides and screenshots) |
 | Agents, one memory | **2** | Claude Code and Codex read the same memory and see each other's latest messages |
 | Phone access | **1 repo** | Your private GitHub repo is the bridge. No server, no new app |
 | Health checks | **16+** | `doctor` checks every part and tells you the exact fix |
-| Tests | **18** | Hooks, installer and doctor tested against the real Claude Code payload, on macOS and Linux |
+| Tests | **24** | Hooks, installer and doctor tested against the real Claude Code payload, on macOS and Linux |
 
 <p align="center">
   <img src="assets/demo-agent-sync.png" alt="Tell Codex a codeword by voice, ask Claude a minute later without reading any file, and it knows" width="85%" />
@@ -64,6 +64,7 @@ Then open Claude Code in your vault and type `/boot`.
 | Continue a chat from another Claude window | Start over | `/catchup` reads the other session in full |
 | A tool your agent depends on silently dies | Wasted turns, empty answers | Blocked before the call, with the exact fix |
 | Your nightly index stops updating | You find out months later | `doctor` flags it the next day |
+| The agent says "done" but the tests fail | You find out later | It can't stop until your tests pass. Claude Code and Codex both get sent back with the failing output |
 | `rm -rf ~` | Most guards read a variable Claude Code never sets, so they block nothing | Blocked. Tested against the real hook payload |
 
 ## Without a system vs. with ECX
@@ -84,7 +85,7 @@ everything-claude-codex/
 |-- agent-sync/      Claude <-> Codex: each sees the other's newest messages, plus agent-to-agent mail
 |-- skills/          17 skills: boot, daily, catchup, opps, outreach, email, content, brand, resume,
 |                    money, project, summary, ship, tldr, wiki, wiki-health, video-notes
-|-- hooks/           guard, MCP health, session memory, inbox, archive, AI-tell guard, usage, notify
+|-- hooks/           tests before done, guard, MCP health, session memory, inbox, archive, AI-tell guard, usage
 |-- vault-search/    3 MCP servers (meaning, graph, router) + image search + nightly indexers
 |-- phone-vault/     after-every-reply GitHub sync, phone capture auto-merge, cloud boot rules
 |-- memory/          keeps hot.md current after every /compact
@@ -92,7 +93,7 @@ everything-claude-codex/
 |-- statusline/      context bar + unread mail from Codex
 |-- templates/       CLAUDE.md, AGENTS.md (Codex boots knowing what Claude knows), hot.md
 |-- scripts/         install.py, doctor.py
-`-- tests/           18 tests, macOS + Linux, Python 3.9 to 3.12
+`-- tests/           24 tests, macOS + Linux, Python 3.9 to 3.12
 ```
 
 ## How it fits together
@@ -127,6 +128,7 @@ A router picks the right one. All of it re-indexes every night.
 After every reply, your notes and a copy of your memory sync to your private GitHub repo. On your phone, Claude (Claude app) and Codex (ChatGPT app) work on that repo in the cloud. Say "I met Adi, he's at X": one note lands in `inbox/`, a GitHub Action merges it, and Claude files it next time you open your laptop.
 
 ### 5. Self-healing hooks
+- **Tests before done:** when Claude Code or Codex tries to finish, your tests run first. If they fail, the agent is sent back with the failing output and has to fix it. It runs only when something changed, finds npm, pytest, unittest, cargo, go and make tests on its own, and gives up after 3 tries instead of looping. Set the command per repo in `.ecx/test-command` (or `off`).
 - **Danger guard:** blocks `rm -rf ~`, disk formats and fork bombs; asks before force-pushes, `reset --hard` and `DROP TABLE`.
 - **MCP health:** refuses to call a server whose dependency is down (and tells you the fix) instead of letting it return empty answers.
 - **doctor:** 16+ checks across hooks, indexes, jobs and sync.

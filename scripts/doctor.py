@@ -74,7 +74,8 @@ def main():
 
     print("Hooks")
     g = " ".join(commands(load(os.path.join(HOME, ".claude", "settings.json"))))
-    for script in ("guard_dangerous.py", "mcp_health.py", "usage_tracker.py", "notify_done.py", "auto_allow_reads.py"):
+    for script in ("guard_dangerous.py", "mcp_health.py", "usage_tracker.py", "notify_done.py", "auto_allow_reads.py",
+                   "tests_before_done.py"):
         check(script in g, f"global: {script}", "run scripts/install.py")
     v = " ".join(commands(load(os.path.join(vault, ".claude", "settings.json"))))
     for script, label in (("session_context.sh", "session context"), ("inbox_nudge.sh", "inbox nudge"), ("inject --me claude", "agent-sync"),
@@ -82,6 +83,8 @@ def main():
         check(script in v, f"vault: {label}", "run scripts/install.py")
     c = " ".join(commands(load(os.path.join(vault, ".codex", "hooks.json"))))
     check("--me codex" in c, "Codex: agent-sync", "run scripts/install.py, then in Codex: /hooks, press t")
+    cg = " ".join(commands(load(os.path.join(HOME, ".codex", "hooks.json"))))
+    check("tests_before_done.py" in cg, "Codex: tests before done", "run scripts/install.py, then in Codex: /hooks, press t")
 
     print("Vault search")
     servers = load(os.path.join(vault, ".mcp.json")).get("mcpServers", {})
