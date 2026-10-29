@@ -139,6 +139,7 @@ def main():
     n = 0
     n += add_hooks(v, "SessionStart", f"{E} bash {q(h + '/session_context.sh')}", None, 10)
     n += add_hooks(v, "SessionStart", f"{E} bash {q(h + '/inbox_nudge.sh')}", None, 10)
+    n += add_hooks(v, "SessionStart", f"{E} {PY} {q(ECX + '/scripts/doctor.py')} --vault {q(vault)} --hook", "startup", 15)
     n += add_hooks(v, "UserPromptSubmit", f"{E} {PY} {q(ECX + '/agent-sync/sync.py')} inject --me claude", None, 5)
     n += add_hooks(v, "PostToolUse", f"bash {q(h + '/ai_tell_guard.sh')}", "Write|Edit", 5)
     n += add_hooks(v, "Stop", f"{E} bash {q(h + '/archive_now.sh')}", None, 5)
@@ -153,6 +154,7 @@ def main():
     cpath = os.path.join(vault, ".codex", "hooks.json")
     c = load_json(cpath)
     n = int(add_hooks(c, "UserPromptSubmit", f"{E} {PY} {q(ECX + '/agent-sync/sync.py')} inject --me codex", None, 5))
+    n += add_hooks(c, "SessionStart", f"{E} {PY} {q(ECX + '/scripts/doctor.py')} --vault {q(vault)} --hook", "startup", 15)
     if a.with_phone:
         n += add_hooks(c, "Stop", f"({E} nohup bash {q(ECX + '/phone-vault/sync.sh')} >/dev/null 2>&1 &)", None, 5)
     save_json(cpath, c)

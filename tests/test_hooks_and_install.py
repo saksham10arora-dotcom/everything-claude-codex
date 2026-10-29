@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
@@ -193,6 +194,41 @@ class TestsBeforeDone(unittest.TestCase):
         self.assertEqual(self.run_count(), 0)
 
 
+class SessionStartDoctor(unittest.TestCase):
+    """doctor.py --hook: silent when healthy, a warning with the fix when not."""
+
+    def doctor_hook(self, home, vault, data=None):
+        env = {**os.environ, "HOME": home, "ECX_DATA": data or os.path.join(home, ".ecx", "index")}
+        out = subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "doctor.py"), "--vault", vault, "--hook"],
+                             input="{}", env=env, capture_output=True, text=True, timeout=30)
+        self.assertEqual(out.returncode, 0)
+        return json.loads(out.stdout) if out.stdout.strip() else {}
+
+    def test_broken_setup_warns_user_and_agent(self):
+        home = tempfile.mkdtemp()
+        out = self.doctor_hook(home, os.path.join(home, "vault"))
+        self.assertIn("hot.md", out["systemMessage"])
+        self.assertIn("fix:", out["systemMessage"])
+        ctx = out["hookSpecificOutput"]
+        self.assertEqual(ctx["hookEventName"], "SessionStart")
+        self.assertIn("hot.md", ctx["additionalContext"])
+
+    def test_stale_index_says_when_it_last_updated(self):
+        home = tempfile.mkdtemp()
+        data = os.path.join(home, "index")
+        os.makedirs(os.path.join(home, ".ecx", "venv", "bin"))
+        open(os.path.join(home, ".ecx", "venv", "bin", "python"), "w").close()
+        for sub in ("chroma_db", "lightrag_db"):
+            os.makedirs(os.path.join(data, sub))
+            f = os.path.join(data, sub, "store.bin")
+            open(f, "w").close()
+            old = time.time() - 5 * 86400
+            os.utime(f, (old, old))
+        msg = self.doctor_hook(home, os.path.join(home, "vault"), data)["systemMessage"]
+        self.assertIn("meaning index (ChromaDB), updated 5.0 days ago", msg)
+        self.assertIn(time.strftime("%d %b", time.localtime(time.time() - 5 * 86400)), msg)
+
+
 class Install(unittest.TestCase):
     def test_install_is_idempotent_and_doctor_passes(self):
         home = tempfile.mkdtemp()
@@ -209,6 +245,14 @@ class Install(unittest.TestCase):
         doctor = subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "doctor.py"), "--vault", vault],
                                 env=env, capture_output=True, text=True)
         self.assertEqual(doctor.returncode, 0, doctor.stdout)
+        quiet = subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "doctor.py"), "--vault", vault, "--hook"],
+                               env=env, input="{}", capture_output=True, text=True)
+        self.assertEqual((quiet.returncode, quiet.stdout), (0, ""))   # healthy: says nothing
+        with open(os.path.join(vault, ".claude", "settings.json")) as f:
+            starts = [h for g in json.load(f)["hooks"]["SessionStart"] for h in g["hooks"]]
+        self.assertEqual(sum("doctor.py" in h["command"] for h in starts), 1)
+        with open(os.path.join(vault, ".codex", "hooks.json")) as f:
+            self.assertIn("doctor.py", json.dumps(json.load(f)["hooks"]["SessionStart"]))
 
 
 if __name__ == "__main__":

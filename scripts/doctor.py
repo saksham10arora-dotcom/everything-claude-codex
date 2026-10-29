@@ -2,11 +2,16 @@
 """ECX doctor: check every moving part and say exactly how to fix what's broken.
 
     python3 scripts/doctor.py --vault ~/vault
+    python3 scripts/doctor.py --vault ~/vault --hook    (SessionStart: silent when healthy)
 
 Exists because silent failure is the real enemy: a nightly index job once
 failed 120 nights in a row without anyone noticing. Run this, or let /daily do it.
+Installed as a SessionStart hook for Claude Code and Codex, it runs quietly at the
+start of every session and only speaks up when something is broken.
 """
 import argparse
+import contextlib
+import io
 import json
 import os
 import re
@@ -20,10 +25,13 @@ ECX = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOME = os.path.expanduser("~")
 DATA = os.path.expanduser(os.environ.get("ECX_DATA", "~/.ecx/index"))
 results = []
+failures = []
 
 
 def check(ok, name, fix=""):
     results.append(ok)
+    if not ok:
+        failures.append((name, fix))
     print(f"  {'✓' if ok else '✗'} {name}" + ("" if ok or not fix else f"\n      fix: {fix}"))
 
 
@@ -50,20 +58,57 @@ def port_open(port):
         return False
 
 
-def age_days(path):
+def last_update(path):
+    """(days since the newest file changed, a readable timestamp), or (None, None) if empty."""
     newest = 0
     for d, _, files in os.walk(path):
         for f in files:
             newest = max(newest, os.path.getmtime(os.path.join(d, f)))
-    return (time.time() - newest) / 86400 if newest else None
+    if not newest:
+        return None, None
+    return (time.time() - newest) / 86400, time.strftime("%d %b %H:%M", time.localtime(newest))
+
+
+def session_start(vault):
+    """SessionStart hook: say nothing when healthy; otherwise warn the user and tell the agent."""
+    try:
+        with contextlib.redirect_stdout(io.StringIO()):
+            run(vault, quick=True)
+    except Exception:
+        return
+    if not failures:
+        return
+    n = len(failures)
+    head = f"ECX doctor: {n} thing{'s' if n > 1 else ''} to fix"
+    lines = "\n".join(f"- {name}" + (f"\n  fix: {fix}" if fix else "") for name, fix in failures)
+    print(json.dumps({
+        "systemMessage": f"{head}\n{lines}",
+        "hookSpecificOutput": {
+            "hookEventName": "SessionStart",
+            "additionalContext": f"{head} (checked at session start):\n{lines}\nMention this to the user in one or two "
+                                 "lines at the start of your first reply, with the fix, then do what they asked.",
+        },
+    }))
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--vault", default=os.environ.get("ECX_VAULT", os.path.join(HOME, "vault")))
-    vault = os.path.realpath(os.path.expanduser(ap.parse_args().vault))
+    ap.add_argument("--hook", action="store_true", help="SessionStart mode: silent when healthy, a short warning when not")
+    a = ap.parse_args()
+    vault = os.path.realpath(os.path.expanduser(a.vault))
+    if a.hook:
+        session_start(vault)
+        return
     print(f"\nECX doctor · vault: {vault}\n")
+    run(vault)
+    bad = results.count(False)
+    print(f"\n{len(results) - bad}/{len(results)} checks passed" + ("" if not bad else f", {bad} to fix (see above)") + "\n")
+    sys.exit(1 if bad else 0)
 
+
+def run(vault, quick=False):
+    """Every check. quick skips the ones that go over the network (for the session-start hook)."""
     print("Core")
     check(sys.version_info >= (3, 9), f"python {sys.version.split()[0]}", "install Python 3.9+")
     check(shutil.which("git") is not None, "git", "install git")
@@ -79,7 +124,8 @@ def main():
         check(script in g, f"global: {script}", "run scripts/install.py")
     v = " ".join(commands(load(os.path.join(vault, ".claude", "settings.json"))))
     for script, label in (("session_context.sh", "session context"), ("inbox_nudge.sh", "inbox nudge"), ("inject --me claude", "agent-sync"),
-                          ("archive_now.sh", "session archive"), ("update_hot.py", "hot.md refresh after /compact")):
+                          ("archive_now.sh", "session archive"), ("update_hot.py", "hot.md refresh after /compact"),
+                          ("doctor.py", "session-start doctor")):
         check(script in v, f"vault: {label}", "run scripts/install.py")
     c = " ".join(commands(load(os.path.join(vault, ".codex", "hooks.json"))))
     check("--me codex" in c, "Codex: agent-sync", "run scripts/install.py, then in Codex: /hooks, press t")
@@ -94,8 +140,8 @@ def main():
         warn("search stack not installed", "optional: python3 scripts/install.py --with-search")
     else:
         for name, sub in (("meaning index (ChromaDB)", "chroma_db"), ("relationship graph (LightRAG)", "lightrag_db")):
-            age = age_days(os.path.join(DATA, sub))
-            check(age is not None and age < 2, f"{name}" + (f", updated {age:.1f} days ago" if age is not None else ", never built"),
+            age, when = last_update(os.path.join(DATA, sub))
+            check(age is not None and age < 2, f"{name}" + (f", updated {age:.1f} days ago ({when})" if age is not None else ", never built"),
                   "run the matching vault-search/*ingest.py, and check its log in ~/.ecx/index")
         ollama = port_open(11434)
         check(ollama, "Ollama running (needed by the graph)", "open the Ollama app, or `ollama serve`")
@@ -126,17 +172,13 @@ def main():
         warn("no GitHub remote", "optional: push the vault to a PRIVATE repo, then install with --with-phone")
     else:
         check(True, f"remote: {remote}")
-        if shutil.which("gh"):
+        if shutil.which("gh") and not quick:
             out = subprocess.run(["gh", "repo", "view", remote, "--json", "isPrivate", "-q", ".isPrivate"], capture_output=True, text=True).stdout.strip()
             check(out == "true", "vault repo is private", "make the vault repo private: it holds your notes")
         log = os.path.join(HOME, ".vault-sync", "sync.log")
         if os.path.exists(log):
             last = open(log).read().strip().splitlines()[-1:] or [""]
             check("CONFLICT" not in last[0] and "failed" not in last[0], f"last sync: {last[0][:60]}", f"read {log}")
-
-    bad = results.count(False)
-    print(f"\n{len(results) - bad}/{len(results)} checks passed" + ("" if not bad else f", {bad} to fix (see above)") + "\n")
-    sys.exit(1 if bad else 0)
 
 
 if __name__ == "__main__":

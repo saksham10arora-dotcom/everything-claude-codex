@@ -24,12 +24,12 @@ you talk to either agent  ->  both remember  ->  your notes answer  ->  your pho
 | Included | Count | What it gives you |
 |---|---:|---|
 | Skills | **17** | `/boot`, `/daily`, `/catchup`, `/opps`, `/outreach`, `/content`, `/ship`, `/video-notes`, `/wiki` and more |
-| Hooks | **19** | Memory loading, tests before "done", a working danger guard, MCP health checks, AI-tell guard, usage tracking |
+| Hooks | **21** | Memory loading, tests before "done", a health check at every session start, a working danger guard, MCP health checks, AI-tell guard |
 | Search engines | **3** | By meaning (ChromaDB), by relationship (LightRAG graph), by image (CLIP over your slides and screenshots) |
 | Agents, one memory | **2** | Claude Code and Codex read the same memory and see each other's latest messages |
 | Phone access | **1 repo** | Your private GitHub repo is the bridge. No server, no new app |
-| Health checks | **16+** | `doctor` checks every part and tells you the exact fix |
-| Tests | **24** | Hooks, installer and doctor tested against the real Claude Code payload, on macOS and Linux |
+| Health checks | **16+** | `doctor` checks every part at the start of every session and tells you the exact fix |
+| Tests | **27** | Hooks, installer and doctor tested against the real Claude Code payload, on macOS and Linux |
 
 <p align="center">
   <img src="assets/demo-agent-sync.png" alt="Tell Codex a codeword by voice, ask Claude a minute later without reading any file, and it knows" width="85%" />
@@ -63,7 +63,7 @@ Then open Claude Code in your vault and type `/boot`.
 | "Find the slide with the gradient descent diagram" | Grep for words | Search images by describing them, and jump to the note they're in |
 | Continue a chat from another Claude window | Start over | `/catchup` reads the other session in full |
 | A tool your agent depends on silently dies | Wasted turns, empty answers | Blocked before the call, with the exact fix |
-| Your nightly index stops updating | You find out months later | `doctor` flags it the next day |
+| Your nightly index stops updating | You find out months later | Your next session opens with a warning and when it last updated |
 | The agent says "done" but the tests fail | You find out later | It can't stop until your tests pass. Claude Code and Codex both get sent back with the failing output |
 | `rm -rf ~` | Most guards read a variable Claude Code never sets, so they block nothing | Blocked. Tested against the real hook payload |
 
@@ -93,7 +93,7 @@ everything-claude-codex/
 |-- statusline/      context bar + unread mail from Codex
 |-- templates/       CLAUDE.md, AGENTS.md (Codex boots knowing what Claude knows), hot.md
 |-- scripts/         install.py, doctor.py
-`-- tests/           24 tests, macOS + Linux, Python 3.9 to 3.12
+`-- tests/           27 tests, macOS + Linux, Python 3.9 to 3.12
 ```
 
 ## How it fits together
@@ -131,7 +131,7 @@ After every reply, your notes and a copy of your memory sync to your private Git
 - **Tests before done:** when Claude Code or Codex tries to finish, your tests run first. If they fail, the agent is sent back with the failing output and has to fix it. It runs only when something changed, finds npm, pytest, unittest, cargo, go and make tests on its own, and gives up after 3 tries instead of looping. Set the command per repo in `.ecx/test-command` (or `off`).
 - **Danger guard:** blocks `rm -rf ~`, disk formats and fork bombs; asks before force-pushes, `reset --hard` and `DROP TABLE`.
 - **MCP health:** refuses to call a server whose dependency is down (and tells you the fix) instead of letting it return empty answers.
-- **doctor:** 16+ checks across hooks, indexes, jobs and sync.
+- **doctor:** 16+ checks across hooks, indexes, jobs and sync. It also runs at the start of every Claude Code and Codex session: silent when everything is healthy, a short warning with the fix (and the index's last update time) when not.
 
 <p align="center"><img src="assets/doctor.png" alt="ECX doctor output: every check passing" width="70%" /></p>
 
