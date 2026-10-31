@@ -13,6 +13,10 @@
 
 # ECX: everything claude codex
 
+![Tell Codex a codeword by voice, ask Claude a minute later without reading any file, and it knows](assets/demo-agent-sync.png)
+
+<sub><b>Real, unedited.</b> A codeword told to Codex by voice. A minute later Claude knows it, without reading a single file.</sub>
+
 **The complete AI dev setup for Claude Code and Codex.** Your agents start every session already knowing you, share one memory with each other (voice included), search everything you've ever written, check their own tools before they break, and keep working from your phone with your laptop shut.
 
 Built and battle-tested every day for 6 months by [@nerfsaksham](https://x.com/nerfsaksham), 3x hackathon winner. It's the setup behind 37 shipped projects. Install it in 30 seconds.
@@ -30,12 +34,6 @@ you talk to either agent  ->  both remember  ->  your notes answer  ->  your pho
 | Phone access | **1 repo** | Your private GitHub repo is the bridge. No server, no new app |
 | Health checks | **16+** | `doctor` checks every part at the start of every session and tells you the exact fix |
 | Tests | **27** | Hooks, installer and doctor tested against the real Claude Code payload, on macOS and Linux |
-
-<p align="center">
-  <img src="assets/demo-agent-sync.png" alt="Tell Codex a codeword by voice, ask Claude a minute later without reading any file, and it knows" width="85%" />
-  <br />
-  <sub><b>Real, unedited.</b> A codeword told to Codex by voice. A minute later Claude knows it, without reading a single file.</sub>
-</p>
 
 ## Install in 30 seconds
 
