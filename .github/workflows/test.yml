@@ -3,8 +3,10 @@ on: [push, pull_request]
 jobs:
   test:
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        # ubuntu-latest is 26.04, which ships no Python 3.9; 24.04 still does.
+        os: [ubuntu-24.04, macos-latest]
         python: ["3.9", "3.12"]
     runs-on: ${{ matrix.os }}
     steps:
