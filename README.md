@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/hero.png" alt="ECX: everything claude codex. The complete AI dev setup for Claude Code and Codex." width="100%" />
+  <img src="assets/hero.png" alt="ECX: everything claude codex. Claude Code and Codex working as one team, with one memory." width="100%" />
 </p>
 
 <p align="center">
@@ -17,7 +17,9 @@
 
 <sub><b>Real, unedited.</b> A codeword told to Codex by voice. A minute later Claude knows it, without reading a single file.</sub>
 
-**The complete AI dev setup for Claude Code and Codex.** Your agents start every session already knowing you, share one memory with each other (voice included), search everything you've ever written, check their own tools before they break, and keep working from your phone with your laptop shut.
+**Claude Code and Codex, working as one team.** Two agents from two different labs share one memory and see each other's latest messages, so you can start a task in one and finish it in the other without explaining anything twice. Around that team: every session starts already knowing you, your notes are searchable by meaning, the setup checks its own tools before they break, and it keeps working from your phone with your laptop shut.
+
+Not a skills pack. It runs alongside packs like Superpowers instead of replacing them.
 
 Built and battle-tested every day for 6 months by [@nerfsaksham](https://x.com/nerfsaksham), 3x hackathon winner. It's the setup behind 37 shipped projects. Install it in 30 seconds.
 
