@@ -130,6 +130,7 @@ After every reply, your notes and a copy of your memory sync to your private Git
 ### 5. Self-healing hooks
 - **Tests before done:** when Claude Code or Codex tries to finish, your tests run first. If they fail, the agent is sent back with the failing output and has to fix it. It runs only when something changed, finds npm, pytest, unittest, cargo, go and make tests on its own, and gives up after 3 tries instead of looping. Set the command per repo in `.ecx/test-command` (or `off`).
 - **Danger guard:** blocks `rm -rf ~`, disk formats and fork bombs; asks before force-pushes, `reset --hard` and `DROP TABLE`.
+- **AI-tell guard:** after you write in `content/` or `personal/`, warns about the em dash and the AI phrases in `hooks/ai_tells.txt` (`delve`, `tapestry`, "it's not just…"). Phrases match whole words, ignoring case and curly apostrophes; common phrases can still fire on human prose, so trim the list if they do. Edit that list, or point `ECX_AI_TELLS=/path/to/file` at your own. It warns and never blocks.
 - **MCP health:** refuses to call a server whose dependency is down (and tells you the fix) instead of letting it return empty answers.
 - **doctor:** 16+ checks across hooks, indexes, jobs and sync. It also runs at the start of every Claude Code and Codex session: silent when everything is healthy, a short warning with the fix (and the index's last update time) when not.
 
