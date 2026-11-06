@@ -158,6 +158,27 @@ ECX plays well with these (not bundled, all worth installing): [superpowers](htt
 
 **How do I remove it?** Restore the `.ecx-bak` files and delete the skill links in `~/.claude/skills`.
 
+## Contributing
+
+New here? Start with an issue labelled [`good first issue`](https://github.com/saksham10arora-dotcom/everything-claude-codex/labels/good%20first%20issue). Each one names the exact files to touch.
+
+**Add a skill** (no code needed):
+1. Create `skills/<name>/SKILL.md`. Copy the frontmatter from [`skills/boot/SKILL.md`](skills/boot/SKILL.md): a `name`, and a `description` listing the phrases that trigger it.
+2. Write the steps the agent should follow and the exact output format.
+3. Re-run `./install.sh`. It links every folder in `skills/`, so your skill shows up in Claude Code and Codex right away.
+
+**Add or change a hook:** hooks live in `hooks/` and are registered in `scripts/install.py` (`add_hooks(...)`). A hook must never crash or block by accident: catch errors and exit 0.
+
+**Before you open a PR:**
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+CI runs the same command on macOS and Linux, Python 3.9 and 3.12. Add a test for anything you change in `hooks/` or `scripts/`. One change per PR.
+
+Got a skill or hook in your own setup that others would want? Share it in [Discussions](https://github.com/saksham10arora-dotcom/everything-claude-codex/discussions). The best ones get merged in, with credit.
+
 ## Star history
 
 <a href="https://star-history.com/#saksham10arora-dotcom/everything-claude-codex&Date">
