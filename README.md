@@ -157,7 +157,7 @@ ECX plays well with these (not bundled, all worth installing): [superpowers](htt
 
 **Does it overwrite my config?** Never. It merges, skips anything already there, and saves a `.ecx-bak` copy first.
 
-**How do I remove it?** Restore the `.ecx-bak` files and delete the skill links in `~/.claude/skills`.
+**How do I remove it?** Run `./install.sh --uninstall --vault ~/vault` with the same vault you installed with. It restores every `.ecx-bak` file and removes the skill links that point into this repo in `~/.claude/skills` and `~/.agents/skills`. Skills you added yourself are left alone.
 
 ## Contributing
 

@@ -279,5 +279,45 @@ class Install(unittest.TestCase):
             self.assertIn("doctor.py", json.dumps(json.load(f)["hooks"]["SessionStart"]))
 
 
+class Uninstall(unittest.TestCase):
+    def test_uninstall_restores_settings_and_keeps_own_skills(self):
+        home = tempfile.mkdtemp()
+        vault = os.path.join(home, "my vault")
+        env = {**os.environ, "HOME": home, "USERPROFILE": home}
+        settings = os.path.join(home, ".claude", "settings.json")
+        os.makedirs(os.path.dirname(settings))
+        original = '{\n  "theme": "dark"\n}\n'
+        with open(settings, "w") as f:
+            f.write(original)
+        own = os.path.join(home, ".claude", "skills", "my-own-skill")
+        os.makedirs(own)
+        with open(os.path.join(own, "SKILL.md"), "w") as f:
+            f.write("mine\n")
+        subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "install.py"), "--vault", vault, "--name", "Ada"],
+                       env=env, check=True, capture_output=True)
+        skills = os.path.join(home, ".claude", "skills")
+        self.assertTrue([n for n in os.listdir(skills) if os.path.islink(os.path.join(skills, n))])
+        subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "uninstall.py"), "--vault", vault],
+                       env=env, check=True, capture_output=True)
+        with open(settings) as f:
+            self.assertEqual(f.read(), original)
+        self.assertFalse(os.path.exists(settings + ".ecx-bak"))
+        self.assertTrue(os.path.isfile(os.path.join(own, "SKILL.md")))
+        self.assertEqual([n for n in os.listdir(skills) if os.path.islink(os.path.join(skills, n))], [])
+
+    def test_uninstall_removes_settings_that_install_created(self):
+        home = tempfile.mkdtemp()
+        vault = os.path.join(home, "my vault")
+        env = {**os.environ, "HOME": home, "USERPROFILE": home}
+        settings = os.path.join(home, ".claude", "settings.json")
+        subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "install.py"), "--vault", vault, "--name", "Ada"],
+                       env=env, check=True, capture_output=True)
+        self.assertTrue(os.path.exists(settings))
+        subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "uninstall.py"), "--vault", vault],
+                       env=env, check=True, capture_output=True)
+        self.assertFalse(os.path.exists(settings))
+        self.assertFalse(os.path.exists(settings + ".ecx-new"))
+
+
 if __name__ == "__main__":
     unittest.main()
