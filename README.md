@@ -29,7 +29,7 @@ you talk to either agent  ->  both remember  ->  your notes answer  ->  your pho
 
 | Included | Count | What it gives you |
 |---|---:|---|
-| Skills | **17** | `/boot`, `/daily`, `/catchup`, `/opps`, `/outreach`, `/content`, `/ship`, `/video-notes`, `/wiki` and more |
+| Skills | **18** | `/boot`, `/daily`, `/weekly`, `/catchup`, `/opps`, `/outreach`, `/content`, `/ship`, `/video-notes`, `/wiki` and more |
 | Hooks | **21** | Memory loading, tests before "done", a health check at every session start, a working danger guard, MCP health checks, AI-tell guard |
 | Search engines | **3** | By meaning (ChromaDB), by relationship (LightRAG graph), by image (CLIP over your slides and screenshots) |
 | Agents, one memory | **2** | Claude Code and Codex read the same memory and see each other's latest messages |
@@ -83,7 +83,7 @@ Then open Claude Code in your vault and type `/boot`.
 ```text
 everything-claude-codex/
 |-- agent-sync/      Claude <-> Codex: each sees the other's newest messages, plus agent-to-agent mail
-|-- skills/          17 skills: boot, daily, catchup, opps, outreach, email, content, brand, resume,
+|-- skills/          18 skills: boot, daily, weekly, catchup, opps, outreach, email, content, brand, resume,
 |                    money, project, summary, ship, tldr, wiki, wiki-health, video-notes
 |-- hooks/           tests before done, guard, MCP health, session memory, inbox, archive, AI-tell guard, usage
 |-- vault-search/    3 MCP servers (meaning, graph, router) + image search + nightly indexers
