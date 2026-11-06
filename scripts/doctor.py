@@ -154,8 +154,10 @@ def run(vault, quick=False):
                 warn("could not list Ollama models", "run: ollama list")
 
     print("Nightly jobs")
-    cron = subprocess.run(["crontab", "-l"], capture_output=True, text=True).stdout
-    if "vault-search/ingest.py" in cron:
+    cron = subprocess.run(["crontab", "-l"], capture_output=True, text=True).stdout if shutil.which("crontab") else ""
+    if not shutil.which("crontab"):
+        warn("crontab not installed, so no nightly jobs", "optional: install cron (e.g. apt install cron)")
+    elif "vault-search/ingest.py" in cron:
         check(True, "nightly re-index scheduled")
     else:
         warn("nightly re-index not scheduled", "optional: python3 scripts/install.py --with-cron")
