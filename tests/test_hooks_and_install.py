@@ -70,6 +70,30 @@ class Hooks(unittest.TestCase):
         out = run(os.path.join(HOOKS, "ai_tell_guard.sh"), {"tool_input": {"file_path": post}}, self.env, "bash")
         self.assertIn("em dash", out)
 
+    def test_ai_tell_guard_lists_phrases_in_publish_dirs_only(self):
+        vault = self.vault.replace(os.sep, "/")  # the hook matches folders with "/" separators
+        post = "/".join([vault, "content", "post.md"])
+        with open(post, "w") as f:
+            f.write("We delve into it.")
+        out = run(os.path.join(HOOKS, "ai_tell_guard.sh"), {"tool_input": {"file_path": post}}, self.env, "bash")
+        self.assertIn("delve", out)
+        note = "/".join([vault, "inbox", "note.md"])
+        with open(note, "w") as f:
+            f.write("We delve into it.")
+        out = run(os.path.join(HOOKS, "ai_tell_guard.sh"), {"tool_input": {"file_path": note}}, self.env, "bash")
+        self.assertEqual(out, "")
+        curly = "/".join([vault, "content", "curly.md"])
+        with open(curly, "w") as f:
+            f.write("It’s not just a tool. In today’s fast-paced world, it helps.")
+        out = run(os.path.join(HOOKS, "ai_tell_guard.sh"), {"tool_input": {"file_path": curly}}, self.env, "bash")
+        self.assertIn("it's not just", out)
+        self.assertIn("in today's fast-paced world", out)
+        word = "/".join([vault, "content", "word.md"])
+        with open(word, "w") as f:
+            f.write("She delved into the delivery schedule.")
+        out = run(os.path.join(HOOKS, "ai_tell_guard.sh"), {"tool_input": {"file_path": word}}, self.env, "bash")
+        self.assertEqual(out, "")
+
     def test_auto_allow_reads_only(self):
         allowed = run(os.path.join(HOOKS, "auto_allow_reads.py"), {"tool_name": "Read"})
         self.assertEqual(json.loads(allowed)["hookSpecificOutput"]["decision"]["behavior"], "allow")
