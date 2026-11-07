@@ -52,6 +52,8 @@ Want the full stack?
 ./install.sh --vault ~/vault --name Ada --with-search --with-cron --with-phone
 ```
 
+Want to see the plan first? Add `--dry-run` to list every file the installer would write, link or merge. It changes nothing.
+
 Then open Claude Code in your vault and type `/boot`.
 
 ## Things your setup can't do yet

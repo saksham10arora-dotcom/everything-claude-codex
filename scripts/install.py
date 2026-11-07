@@ -4,6 +4,7 @@ files, and backs up every settings file it changes (*.ecx-bak).
 
     python3 scripts/install.py --vault ~/vault --name "Ada"
     python3 scripts/install.py --vault ~/vault --name "Ada" --with-search --with-cron --with-phone
+    python3 scripts/install.py --vault ~/vault --name "Ada" --dry-run     (print the plan, change nothing)
 """
 import argparse
 import datetime
@@ -17,11 +18,19 @@ import sys
 ECX = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOME = os.path.expanduser("~")
 PY = sys.executable
+DRY = False   # set by --dry-run: report every change, make none
 VAULT_DIRS = ["inbox", "daily", "projects", "personal", "research", "wiki", "content", "archive", ".remember", "agents"]
 
 
 def say(sym, msg):
     print(f"  {sym} {msg}")
+
+
+def mkdir(path):
+    if not DRY:
+        os.makedirs(path, exist_ok=True)
+    elif not os.path.isdir(path):
+        say("+", f"would create folder {path.replace(HOME, '~')}")
 
 
 def memory_dir(vault):
@@ -32,12 +41,16 @@ def render(path, out, values):
     if os.path.exists(out):
         say("=", f"{os.path.relpath(out, values['{{VAULT}}'])} exists, left as is")
         return
+    rel = os.path.relpath(out, values['{{VAULT}}'])
+    if DRY:
+        say("+", f"would create {rel}")
+        return
     s = open(path).read()
     for k, v in values.items():
         s = s.replace(k, v)
     with open(out, "w") as f:
         f.write(s)
-    say("+", f"created {os.path.relpath(out, values['{{VAULT}}'])}")
+    say("+", f"created {rel}")
 
 
 def load_json(path):
@@ -48,6 +61,9 @@ def load_json(path):
 
 
 def save_json(path, data):
+    if DRY:
+        say("~" if os.path.exists(path) else "+", f"would {'merge into' if os.path.exists(path) else 'write'} {path.replace(HOME, '~')}")
+        return
     os.makedirs(os.path.dirname(path), exist_ok=True)
     if os.path.exists(path) and not os.path.exists(path + ".ecx-bak"):
         shutil.copy(path, path + ".ecx-bak")
@@ -81,7 +97,10 @@ def main():
     ap.add_argument("--with-search", action="store_true", help="install the vault search stack (ChromaDB, LightRAG, CLIP) into ~/.ecx/venv")
     ap.add_argument("--with-cron", action="store_true", help="re-index the vault every evening")
     ap.add_argument("--with-phone", action="store_true", help="sync the vault to its GitHub remote after every reply")
+    ap.add_argument("--dry-run", action="store_true", help="print every file it would write, link or merge, and change nothing")
     a = ap.parse_args()
+    global DRY
+    DRY = a.dry_run
 
     vault = os.path.realpath(os.path.expanduser(a.vault))
     data = os.path.join(HOME, ".ecx", "index")
@@ -93,11 +112,13 @@ def main():
     E = f"ECX_VAULT={q(vault)} ECX_DATA={q(data)} AGENT_SYNC_USER={q(a.name)}"   # passed explicitly to every vault hook
 
     print(f"\nECX: installing for {a.name}\n  vault: {vault}\n")
+    if DRY:
+        print("  DRY RUN: nothing below is changed on disk.\n")
 
     # 1. Vault skeleton and templates (never overwrites)
     print("Vault")
     for d in VAULT_DIRS:
-        os.makedirs(os.path.join(vault, d), exist_ok=True)
+        mkdir(os.path.join(vault, d))
     render(os.path.join(ECX, "templates", "CLAUDE.md"), os.path.join(vault, "CLAUDE.md"), values)
     render(os.path.join(ECX, "templates", "AGENTS.md"), os.path.join(vault, "AGENTS.md"), values)
     render(os.path.join(ECX, "templates", "hot.md"), os.path.join(vault, ".remember", "hot.md"), values)
@@ -105,14 +126,15 @@ def main():
     # 2. Skills, linked for Claude Code and for Codex / other agents
     print("Skills")
     for target in (os.path.join(HOME, ".claude", "skills"), os.path.join(HOME, ".agents", "skills")):
-        os.makedirs(target, exist_ok=True)
+        mkdir(target)
         added = 0
         for name in sorted(os.listdir(os.path.join(ECX, "skills"))):
             dst = os.path.join(target, name)
             if not os.path.exists(dst):
-                os.symlink(os.path.join(ECX, "skills", name), dst)
+                if not DRY:
+                    os.symlink(os.path.join(ECX, "skills", name), dst)
                 added += 1
-        say("+", f"{added} skills linked into {target.replace(HOME, '~')}")
+        say("+", f"{added} skills {'would be ' if DRY else ''}linked into {target.replace(HOME, '~')}")
 
     # 3. Global hooks: work in every project
     print("Hooks")
@@ -170,7 +192,7 @@ def main():
     say("+", f"{n} Codex hooks added to ~/.codex/hooks.json (tests before done; approve once in Codex: /hooks, press t)")
 
     # agent mail renders to a markdown file you can read
-    os.makedirs(os.path.join(HOME, ".agent-sync"), exist_ok=True)
+    mkdir(os.path.join(HOME, ".agent-sync"))
     cfgp = os.path.join(HOME, ".agent-sync", "config.json")
     cfg = load_json(cfgp)
     cfg.setdefault("chat_md", os.path.join(vault, "agents", "AGENT_CHAT.md"))
@@ -187,11 +209,14 @@ def main():
     say("+", "3 MCP servers registered in .mcp.json")
     if a.with_search:
         venv = os.path.join(HOME, ".ecx", "venv")
-        if not os.path.exists(venv_py):
-            subprocess.run([PY, "-m", "venv", venv], check=True)
-        subprocess.run([venv_py, "-m", "pip", "install", "-q", "-r", os.path.join(ECX, "vault-search", "requirements.txt")], check=True)
-        say("+", "search stack installed in ~/.ecx/venv. Build the first index: "
-                 f"ECX_VAULT={vault} {venv_py} {ECX}/vault-search/ingest.py")
+        if DRY:
+            say("+", "would create ~/.ecx/venv and pip install vault-search/requirements.txt into it")
+        else:
+            if not os.path.exists(venv_py):
+                subprocess.run([PY, "-m", "venv", venv], check=True)
+            subprocess.run([venv_py, "-m", "pip", "install", "-q", "-r", os.path.join(ECX, "vault-search", "requirements.txt")], check=True)
+            say("+", "search stack installed in ~/.ecx/venv. Build the first index: "
+                     f"ECX_VAULT={vault} {venv_py} {ECX}/vault-search/ingest.py")
     else:
         say("i", "search stack not installed (heavy). Re-run with --with-search when you want it.")
 
@@ -204,22 +229,31 @@ def main():
             "multimodal_ingest.py": f"0 22 * * * ECX_VAULT={vault} ECX_DATA={data} {search_py} {ECX}/vault-search/multimodal_ingest.py >> {data}/images.log 2>&1",
             "tracker_staleness.py": f"0 9 * * * ECX_VAULT={vault} {PY} {ECX}/jobs/tracker_staleness.py >> {data}/staleness.log 2>&1",
         }
-        os.makedirs(data, exist_ok=True)
+        mkdir(data)
         cur = subprocess.run(["crontab", "-l"], capture_output=True, text=True).stdout
         new = [line for key, line in jobs.items() if f"{ECX}/" not in cur or key not in cur]
-        if new:
+        if DRY:
+            for line in new:
+                say("+", f"would add crontab line: {line}")
+        elif new:
             subprocess.run(["crontab", "-"], input=cur.rstrip("\n") + "\n" + "\n".join(new) + "\n", text=True, check=True)
-        say("+", f"{len(new)} nightly jobs added (crontab -l to see them)")
+        say("+", f"{len(new)} nightly jobs {'would be ' if DRY else ''}added (crontab -l to see them)")
 
     if a.with_phone:
         print("Phone vault")
         wf = os.path.join(vault, ".github", "workflows", "inbox-automerge.yml")
-        os.makedirs(os.path.dirname(wf), exist_ok=True)
+        mkdir(os.path.dirname(wf))
         if not os.path.exists(wf):
-            shutil.copy(os.path.join(ECX, "phone-vault", "inbox-automerge.yml"), wf)
+            if DRY:
+                say("+", "would copy inbox-automerge.yml into .github/workflows/")
+            else:
+                shutil.copy(os.path.join(ECX, "phone-vault", "inbox-automerge.yml"), wf)
         say("+", "vault syncs to its GitHub remote after every reply; phone captures auto-merge into inbox/")
         say("i", "make sure the vault is a git repo with a PRIVATE GitHub remote before you rely on this")
 
+    if DRY:
+        print("\nDry run finished. Nothing was changed. Re-run without --dry-run to apply.\n")
+        return
     print(f"\nDone. Open Claude Code in {vault} and say: /boot\n"
           f"Check everything any time: python3 {ECX}/scripts/doctor.py --vault {vault}\n")
 
