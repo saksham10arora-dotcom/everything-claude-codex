@@ -163,7 +163,7 @@ ECX plays well with these (not bundled, all worth installing): [superpowers](htt
 
 ## Contributing
 
-New here? Start with an issue labelled [`good first issue`](https://github.com/saksham10arora-dotcom/everything-claude-codex/labels/good%20first%20issue). Each one names the exact files to touch.
+Full guide: [CONTRIBUTING.md](CONTRIBUTING.md). New here? Start with an issue labelled [`good first issue`](https://github.com/saksham10arora-dotcom/everything-claude-codex/labels/good%20first%20issue). Each one names the exact files to touch.
 
 **How to pick an issue:**
 - `good first issue` is kept for people who haven't had a PR merged here yet. After your first one lands, pick from [`help wanted`](https://github.com/saksham10arora-dotcom/everything-claude-codex/labels/help%20wanted) instead, so newcomers always have a way in.
