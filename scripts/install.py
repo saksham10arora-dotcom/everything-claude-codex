@@ -51,6 +51,8 @@ def save_json(path, data):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     if os.path.exists(path) and not os.path.exists(path + ".ecx-bak"):
         shutil.copy(path, path + ".ecx-bak")
+    elif not os.path.exists(path) and not os.path.exists(path + ".ecx-new"):
+        open(path + ".ecx-new", "w").close()   # marks a file ECX created, so uninstall removes it
     with open(path, "w") as f:
         json.dump(data, f, indent=2)
         f.write("\n")

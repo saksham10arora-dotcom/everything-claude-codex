@@ -8,6 +8,8 @@ import tempfile
 import time
 import unittest
 
+from scripts.uninstall import find
+
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 HOOKS = os.path.join(ROOT, "hooks")
 
@@ -277,6 +279,64 @@ class Install(unittest.TestCase):
         self.assertEqual(sum("doctor.py" in h["command"] for h in starts), 1)
         with open(os.path.join(vault, ".codex", "hooks.json")) as f:
             self.assertIn("doctor.py", json.dumps(json.load(f)["hooks"]["SessionStart"]))
+
+
+class Uninstall(unittest.TestCase):
+    def test_find_deduplicates_paths_through_symlinked_roots(self):
+        home = tempfile.mkdtemp()
+        vault = os.path.join(home, "vault")
+        os.makedirs(vault)
+        marker = os.path.join(vault, "settings.ecx-new")
+        with open(marker, "w"):
+            pass
+
+        alias = os.path.join(home, "vault-alias")
+        try:
+            os.symlink(vault, alias, target_is_directory=True)
+        except (NotImplementedError, OSError) as exc:
+            self.skipTest(f"symlinks are unavailable: {exc}")
+
+        found = find([home, os.path.realpath(alias)], ".ecx-new")
+        self.assertEqual(len(found), 1)
+        self.assertEqual(os.path.realpath(found[0]), os.path.realpath(marker))
+
+    def test_uninstall_restores_settings_and_keeps_own_skills(self):
+        home = tempfile.mkdtemp()
+        vault = os.path.join(home, "my vault")
+        env = {**os.environ, "HOME": home, "USERPROFILE": home}
+        settings = os.path.join(home, ".claude", "settings.json")
+        os.makedirs(os.path.dirname(settings))
+        original = '{\n  "theme": "dark"\n}\n'
+        with open(settings, "w") as f:
+            f.write(original)
+        own = os.path.join(home, ".claude", "skills", "my-own-skill")
+        os.makedirs(own)
+        with open(os.path.join(own, "SKILL.md"), "w") as f:
+            f.write("mine\n")
+        subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "install.py"), "--vault", vault, "--name", "Ada"],
+                       env=env, check=True, capture_output=True)
+        skills = os.path.join(home, ".claude", "skills")
+        self.assertTrue([n for n in os.listdir(skills) if os.path.islink(os.path.join(skills, n))])
+        subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "uninstall.py"), "--vault", vault],
+                       env=env, check=True, capture_output=True)
+        with open(settings) as f:
+            self.assertEqual(f.read(), original)
+        self.assertFalse(os.path.exists(settings + ".ecx-bak"))
+        self.assertTrue(os.path.isfile(os.path.join(own, "SKILL.md")))
+        self.assertEqual([n for n in os.listdir(skills) if os.path.islink(os.path.join(skills, n))], [])
+
+    def test_uninstall_removes_settings_that_install_created(self):
+        home = tempfile.mkdtemp()
+        vault = os.path.join(home, "my vault")
+        env = {**os.environ, "HOME": home, "USERPROFILE": home}
+        settings = os.path.join(home, ".claude", "settings.json")
+        subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "install.py"), "--vault", vault, "--name", "Ada"],
+                       env=env, check=True, capture_output=True)
+        self.assertTrue(os.path.exists(settings))
+        subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "uninstall.py"), "--vault", vault],
+                       env=env, check=True, capture_output=True)
+        self.assertFalse(os.path.exists(settings))
+        self.assertFalse(os.path.exists(settings + ".ecx-new"))
 
 
 if __name__ == "__main__":
