@@ -281,6 +281,37 @@ class Install(unittest.TestCase):
             self.assertIn("doctor.py", json.dumps(json.load(f)["hooks"]["SessionStart"]))
 
 
+class InstallDryRun(unittest.TestCase):
+    def snapshot(self, home):
+        return sorted(os.path.join(d, n) for d, dirs, files in os.walk(home) for n in dirs + files)
+
+    def test_dry_run_changes_nothing_and_lists_the_plan(self):
+        home = tempfile.mkdtemp()
+        vault = os.path.join(home, "vault")
+        env = {**os.environ, "HOME": home}
+        before = self.snapshot(home)
+        out = subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "install.py"), "--vault", vault,
+                              "--name", "Ada", "--with-search", "--with-phone", "--dry-run"],
+                             env=env, check=True, capture_output=True, text=True).stdout
+        self.assertEqual(self.snapshot(home), before)
+        for planned in ("would create CLAUDE.md", "would write ~/.claude/settings.json",
+                        "would write ~/.codex/hooks.json", "would write", "would create ~/.ecx/venv",
+                        "would copy inbox-automerge.yml", "linked into ~/.claude/skills"):
+            self.assertIn(planned, out)
+        self.assertIn("Nothing was changed", out)
+
+    def test_dry_run_after_install_reports_no_new_hooks(self):
+        home = tempfile.mkdtemp()
+        vault = os.path.join(home, "vault")
+        env = {**os.environ, "HOME": home}
+        args = [sys.executable, os.path.join(ROOT, "scripts", "install.py"), "--vault", vault, "--name", "Ada"]
+        subprocess.run(args, env=env, check=True, capture_output=True)
+        before = self.snapshot(home)
+        out = subprocess.run(args + ["--dry-run"], env=env, check=True, capture_output=True, text=True).stdout
+        self.assertEqual(self.snapshot(home), before)
+        self.assertIn("0 global hooks added", out)
+
+
 class Uninstall(unittest.TestCase):
     def test_find_deduplicates_paths_through_symlinked_roots(self):
         home = tempfile.mkdtemp()
