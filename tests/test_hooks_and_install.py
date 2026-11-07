@@ -8,6 +8,8 @@ import tempfile
 import time
 import unittest
 
+from scripts.uninstall import find
+
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 HOOKS = os.path.join(ROOT, "hooks")
 
@@ -280,6 +282,22 @@ class Install(unittest.TestCase):
 
 
 class Uninstall(unittest.TestCase):
+    def test_find_deduplicates_paths_through_symlinked_roots(self):
+        home = tempfile.mkdtemp()
+        vault = os.path.join(home, "vault")
+        os.makedirs(vault)
+        marker = os.path.join(vault, "settings.ecx-new")
+        with open(marker, "w"):
+            pass
+
+        alias = os.path.join(home, "vault-alias")
+        try:
+            os.symlink(vault, alias, target_is_directory=True)
+        except (NotImplementedError, OSError) as exc:
+            self.skipTest(f"symlinks are unavailable: {exc}")
+
+        self.assertEqual(find([home, os.path.realpath(alias)], ".ecx-new"), [marker])
+
     def test_uninstall_restores_settings_and_keeps_own_skills(self):
         home = tempfile.mkdtemp()
         vault = os.path.join(home, "my vault")

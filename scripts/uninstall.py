@@ -20,6 +20,7 @@ def say(sym, msg):
 def find(roots, suffix):
     """Find files ending in suffix at each root and one folder level below it (dot-folders included)."""
     found = {}   # keyed by normalized path: the vault can sit inside HOME, so roots overlap
+    roots = list(dict.fromkeys(os.path.normcase(os.path.realpath(root)) for root in roots))
     for root in roots:
         if not os.path.isdir(root):
             continue
@@ -28,7 +29,7 @@ def find(roots, suffix):
             for n in os.listdir(d):
                 if n.endswith(suffix):
                     p = os.path.join(d, n)
-                    found.setdefault(os.path.normcase(os.path.abspath(p)), p)
+                    found.setdefault(os.path.normcase(os.path.realpath(p)), p)
     return sorted(found.values())
 
 
