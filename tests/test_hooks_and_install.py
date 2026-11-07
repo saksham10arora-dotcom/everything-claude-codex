@@ -296,7 +296,9 @@ class Uninstall(unittest.TestCase):
         except (NotImplementedError, OSError) as exc:
             self.skipTest(f"symlinks are unavailable: {exc}")
 
-        self.assertEqual(find([home, os.path.realpath(alias)], ".ecx-new"), [os.path.realpath(marker)])
+        found = find([home, os.path.realpath(alias)], ".ecx-new")
+        self.assertEqual(len(found), 1)
+        self.assertEqual(os.path.realpath(found[0]), os.path.realpath(marker))
 
     def test_uninstall_restores_settings_and_keeps_own_skills(self):
         home = tempfile.mkdtemp()
