@@ -29,7 +29,8 @@ def decision(command):
 
 class Guard(unittest.TestCase):
     def test_blocks_catastrophic(self):
-        for c in ("rm -rf /", "rm -rf ~", "sudo rm -rf / --no-preserve-root", "mkfs.ext4 /dev/sda1", "chmod -R 777 /"):
+        for c in ("rm -rf /", "rm -rf ~", "sudo rm -rf / --no-preserve-root", "mkfs.ext4 /dev/sda1", "chmod -R 777 /",
+                  "find / -delete", "find ~ -delete", "sudo find / -delete"):
             self.assertEqual(decision(c), "deny", c)
 
     def test_asks_before_risky(self):
@@ -37,7 +38,7 @@ class Guard(unittest.TestCase):
             self.assertEqual(decision(c), "ask", c)
 
     def test_allows_normal(self):
-        for c in ("ls -la", "npm test", "git push origin main", "python3 -m pytest"):
+        for c in ("ls -la", "npm test", "git push origin main", "python3 -m pytest", "find . -name \"*.py\"", "find / -name \"*.py\""):
             self.assertEqual(decision(c), "allow", c)
 
 
