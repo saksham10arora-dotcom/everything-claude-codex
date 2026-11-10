@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>duo</title>
+<style>
+:root {
+  --bg: oklch(0.205 0.012 255);
+  --panel: oklch(0.235 0.013 255);
+  --raise: oklch(0.27 0.014 255);
+  --line: oklch(0.33 0.014 255);
+  --ink: oklch(0.95 0.006 255);
+  --soft: oklch(0.79 0.012 255);
+  --mute: oklch(0.66 0.014 255);
+  --claude: oklch(0.74 0.115 50);
+  --claude-bg: oklch(0.27 0.035 50);
+  --codex: oklch(0.76 0.09 235);
+  --codex-bg: oklch(0.265 0.035 235);
+  --you: oklch(0.95 0.006 255);
+  --ask: oklch(0.83 0.14 85);
+  --ask-bg: oklch(0.29 0.05 85);
+  --ok: oklch(0.78 0.13 150);
+  --no: oklch(0.7 0.15 25);
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.55 var(--sans); }
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; border: 1px solid var(--line); background: var(--raise); border-radius: 8px; padding: 6px 12px; }
+button:hover { border-color: var(--mute); }
+button:active { transform: translateY(1px); }
+:focus-visible { outline: 2px solid var(--codex); outline-offset: 2px; }
+
+.app { display: grid; grid-template-columns: minmax(0, 1fr) 340px; grid-template-rows: auto minmax(0, 1fr); height: 100dvh; }
+main { grid-column: 1; grid-row: 2; }
+aside { grid-column: 2; grid-row: 2; }
+header { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; padding: 10px 20px;
+  border-bottom: 1px solid var(--line); background: var(--panel); min-width: 0; }
+.mark { font-weight: 800; letter-spacing: -0.02em; font-size: 17px; }
+.mark span:first-child { color: var(--claude); } .mark span:last-child { color: var(--codex); }
+.goal { color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
+.state { display: flex; gap: 8px; align-items: center; color: var(--mute); font-size: 13px; white-space: nowrap; }
+.phase { color: var(--ink); background: var(--raise); border: 1px solid var(--line); border-radius: 99px; padding: 2px 10px; }
+.phase.paused { color: var(--ask); border-color: var(--ask); }
+.phase.done { color: var(--ok); border-color: var(--ok); }
+.phase.stopped { color: var(--no); border-color: var(--no); }
+#stop { border-color: oklch(0.45 0.08 25); }
+
+main { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; }
+.banner { display: none; padding: 8px 20px; font-size: 14px; border-bottom: 1px solid var(--line); }
+.banner.show { display: block; }
+.banner.ask { background: var(--ask-bg); color: var(--ask); }
+#chat { overflow-y: auto; padding: 18px 20px 28px; }
+.feed { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+
+.msg { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 12px; animation: in .18s ease-out; }
+@keyframes in { from { opacity: 0; transform: translateY(4px); } }
+.who { font-weight: 700; font-size: 13px; padding-top: 2px; text-align: right; }
+.claude .who { color: var(--claude); } .codex .who { color: var(--codex); } .user .who { color: var(--you); }
+.body { min-width: 0; overflow-wrap: anywhere; }
+.claude .body { border-left: 1px solid oklch(0.45 0.07 50); padding-left: 12px; }
+.codex .body { border-left: 1px solid oklch(0.45 0.06 235); padding-left: 12px; }
+.user .body { font-weight: 600; }
+.to { color: var(--mute); font-weight: 400; font-size: 12px; }
+@media (max-width: 860px) { .who br { display: none; } .who .to { margin-left: 6px; } }
+.body p { margin: 0 0 6px; }
+.body code, .tool code { font: 13px/1.5 var(--mono); background: var(--raise); border-radius: 4px; padding: 1px 5px; }
+.ready { display: inline-block; font-size: 12px; color: var(--ok); border: 1px solid var(--ok); border-radius: 99px; padding: 0 8px; margin-left: 4px; }
+.sys { color: var(--mute); font-size: 13px; text-align: center; }
+.sys.flag { color: var(--ask); }
+.sys.err { color: var(--no); }
+
+details.work { margin: 4px 0 0 76px; color: var(--mute); font-size: 13px; }
+details.work summary { cursor: pointer; list-style: none; }
+details.work summary::before { content: "+ "; font-family: var(--mono); }
+details.work[open] summary::before { content: "- "; }
+.tool { font: 12.5px/1.5 var(--mono); color: var(--soft); padding: 3px 0 3px 10px; border-left: 1px solid var(--line); white-space: pre-wrap; overflow-wrap: anywhere; }
+.tool .res { color: var(--mute); display: block; }
+.tool .bad { color: var(--no); }
+.reason { color: var(--mute); font-style: italic; }
+
+.card { border: 1px solid var(--ask); background: var(--ask-bg); border-radius: 12px; padding: 14px 16px; margin-left: 76px; }
+.card h3 { margin: 0 0 4px; font-size: 15px; color: var(--ask); }
+.card .what { font: 13px/1.5 var(--mono); background: oklch(0.22 0.02 85); border-radius: 6px; padding: 8px 10px; margin: 8px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.card .why { color: var(--soft); font-size: 14px; }
+.card .plan { background: var(--panel); border-radius: 8px; padding: 10px 12px; margin: 8px 0; max-height: 360px; overflow: auto; }
+.card .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.card input { flex: 1; min-width: 160px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+.card .yes { background: var(--ok); color: oklch(0.2 0.03 150); border-color: var(--ok); font-weight: 700; }
+.card .nope { border-color: var(--no); color: var(--no); }
+.card.closed { border-color: var(--line); background: var(--panel); padding: 8px 14px; }
+.card.closed h3 { color: var(--soft); font-weight: 600; }
+.card .verdict.approve { color: var(--ok); } .card .verdict.deny { color: var(--no); }
+
+form.say { border-top: 1px solid var(--line); background: var(--panel); padding: 12px 20px; }
+.say .inner { max-width: 760px; margin: 0 auto; display: flex; gap: 8px; align-items: flex-end; }
+.say textarea { flex: 1; resize: none; min-height: 42px; max-height: 160px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; }
+.say textarea::placeholder { color: var(--mute); }
+.chips { max-width: 760px; margin: 0 auto 8px; display: flex; gap: 6px; }
+.chips button { font-size: 13px; padding: 2px 10px; border-radius: 99px; }
+.chips .c { color: var(--claude); } .chips .x { color: var(--codex); }
+#send { background: var(--ink); color: var(--bg); border-color: var(--ink); font-weight: 700; }
+
+aside { border-left: 1px solid var(--line); background: var(--panel); overflow-y: auto; padding: 16px 18px; min-height: 0; }
+aside h2 { font-size: 13px; color: var(--mute); font-weight: 600; margin: 0 0 10px; }
+#plan ul { list-style: none; padding: 0; margin: 0 0 10px; }
+#plan li { padding: 3px 0 3px 24px; position: relative; color: var(--soft); }
+#plan li::before { content: ""; position: absolute; left: 2px; top: 8px; width: 11px; height: 11px; border: 1.5px solid var(--mute); border-radius: 3px; }
+#plan li.done { color: var(--mute); text-decoration: line-through; }
+#plan li.done::before { background: var(--ok); border-color: var(--ok); }
+#plan h1, #plan h2, #plan h3 { font-size: 14px; color: var(--ink); margin: 12px 0 6px; }
+#plan p { color: var(--soft); margin: 0 0 8px; font-size: 14px; }
+.empty { color: var(--mute); font-size: 14px; }
+.legend { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--mute); font-size: 13px; }
+.legend b { color: var(--soft); font-weight: 600; }
+
+@media (max-width: 860px) {
+  .app { grid-template-columns: 1fr; grid-template-rows: auto auto minmax(0, 1fr); }
+  aside { grid-column: 1; grid-row: 2; border-left: 0; border-bottom: 1px solid var(--line); max-height: 30dvh; padding: 10px 16px; }
+  main { grid-column: 1; grid-row: 3; }
+  header { padding: 10px 16px; flex-wrap: wrap; gap: 8px; }
+  .goal { flex-basis: 100%; order: 3; }
+  #chat, form.say, .banner { padding-left: 16px; padding-right: 16px; }
+  .msg { grid-template-columns: 1fr; gap: 2px; }
+  .who { text-align: left; }
+  details.work, .card { margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .msg { animation: none; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="mark"><span>Claude</span> + <span>Codex</span></div>
+    <div class="goal" id="goal"></div>
+    <div class="state">
+      <span class="phase" id="phase">starting</span>
+      <span id="clock">0:00</span>
+      <button id="pause" type="button">Pause</button>
+      <button id="stop" type="button">Stop</button>
+    </div>
+  </header>
+  <aside>
+    <h2>Their plan</h2>
+    <div id="plan"><p class="empty">They are reading the project and arguing out a plan.</p></div>
+    <div class="legend">
+      Type <b>@claude</b> or <b>@codex</b> to talk to one of them. Anything else goes to both.
+      Risky actions wait for you here as cards.
+    </div>
+  </aside>
+  <main>
+    <div class="banner" id="banner"></div>
+    <div id="chat"><div class="feed" id="feed"></div></div>
+    <form class="say" id="say">
+      <div class="chips"><button type="button" class="c" data-at="@claude ">@claude</button><button type="button" class="x" data-at="@codex ">@codex</button></div>
+      <div class="inner">
+        <textarea id="text" rows="1" placeholder="Say something to both of them" aria-label="Message"></textarea>
+        <button id="send" type="submit">Send</button>
+      </div>
+    </form>
+  </main>
+</div>
+<script>
+const T = new URLSearchParams(location.search).get("t") || "";
+const $ = (id) => document.getElementById(id);
+const feed = $("feed"), chat = $("chat");
+const NAME = { claude: "Claude", codex: "Codex", user: "You" };
+let last = 0, started = null, status = "running", phase = "plan", work = null, workAgent = null, toolCount = {};
+const cards = {};
+
+function esc(s) { return String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function inline(s) {
+  return esc(s).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+    .replace(/\[\[READY:\s*(plan|done)\s*\]\]/gi, (_, w) => `<span class="ready">ready: ${w.toLowerCase()}</span>`);
+}
+function md(s) {
+  const out = []; let list = null;
+  for (const raw of String(s || "").split("\n")) {
+    const line = raw.trimEnd();
+    const box = line.match(/^\s*[-*]\s+\[( |x|X)\]\s+(.*)$/), item = line.match(/^\s*[-*]\s+(.*)$/), num = line.match(/^\s*\d+[.)]\s+(.*)$/), h = line.match(/^(#{1,3})\s+(.*)$/);
+    if (box || item || num) {
+      if (!list) { list = []; out.push(list); }
+      list.push(box ? `<li class="${box[1].trim() ? "done" : ""}">${inline(box[2])}</li>` : `<li>${inline((item || num)[1])}</li>`);
+      continue;
+    }
+    list = null;
+    if (h) out.push(`<h3>${inline(h[2])}</h3>`); else if (line.trim()) out.push(`<p>${inline(line)}</p>`);
+  }
+  return out.map((x) => Array.isArray(x) ? `<ul>${x.join("")}</ul>` : x).join("");
+}
+function stick() { return chat.scrollHeight - chat.scrollTop - chat.clientHeight < 120; }
+function add(el, keep) { feed.appendChild(el); if (keep) chat.scrollTop = chat.scrollHeight; }
+function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
+
+function endWork() { work = null; workAgent = null; }
+function workBox(agent) {
+  if (work && workAgent === agent) return work;
+  work = el("details", "work"); workAgent = agent; toolCount[agent] = 0;
+  work.innerHTML = `<summary></summary>`; work.dataset.n = 0; work.dataset.f = 0;
+  return work;
+}
+function bump(box, agent, file) {
+  if (file) box.dataset.f = +box.dataset.f + 1; else box.dataset.n = +box.dataset.n + 1;
+  const n = +box.dataset.n, f = +box.dataset.f, parts = [];
+  if (n) parts.push(`${n} ${n === 1 ? "step" : "steps"}`);
+  if (f) parts.push(`${f} file ${f === 1 ? "change" : "changes"}`);
+  box.querySelector("summary").textContent = `${NAME[agent]} worked: ${parts.join(", ")}`;
+}
+
+function card(e, keep) {
+  const c = el("div", "card");
+  c.id = "card-" + e.id;
+  if (e.card === "plan") {
+    c.innerHTML = `<h3>Approve their plan?</h3><div class="why">Nothing gets built until you say yes.</div><div class="plan">${md(e.plan)}</div>`;
+  } else {
+    c.innerHTML = `<h3>${esc(NAME[e.by] || e.by)} wants to do this</h3><div class="what">${esc(e.summary)}</div><div class="why">${esc(e.reason)}</div>`;
+  }
+  const row = el("div", "row");
+  row.innerHTML = `<input placeholder="${e.card === "plan" ? "Note for them (optional)" : "Why, or what to do instead (optional)"}" aria-label="Note"><button class="yes" type="button">Approve</button><button class="nope" type="button">${e.card === "plan" ? "Send back" : "Deny"}</button>`;
+  const note = row.querySelector("input");
+  row.querySelector(".yes").onclick = () => post("/card", { id: e.id, decision: "approve", note: note.value });
+  row.querySelector(".nope").onclick = () => post("/card", { id: e.id, decision: "deny", note: note.value });
+  c.appendChild(row);
+  cards[e.id] = c;
+  add(c, keep);
+}
+function closeCard(e) {
+  const c = cards[e.id]; if (!c) return;
+  const ok = e.decision === "approve";
+  const title = c.querySelector("h3").textContent.replace(" wants to do this", "").replace("Approve their plan?", "The plan");
+  c.className = "card closed";
+  c.innerHTML = `<h3>${esc(title)}: <span class="verdict ${e.decision}">${ok ? "approved" : "denied"}</span>${e.note ? ` <span class="to">"${esc(e.note)}"</span>` : ""}</h3>` + (c.querySelector(".what") ? c.querySelector(".what").outerHTML : "");
+}
+
+function banner(text, cls) { const b = $("banner"); b.className = "banner" + (text ? " show " + (cls || "") : ""); b.textContent = text || ""; }
+function setPhase() {
+  const p = $("phase");
+  p.className = "phase " + (status !== "running" ? status : "");
+  p.textContent = status === "running" ? (phase === "plan" ? "planning" : "building") : status;
+  $("pause").textContent = status === "paused" ? "Resume" : "Pause";
+  $("pause").disabled = $("stop").disabled = status === "done" || status === "stopped";
+}
+
+function handle(e) {
+  if (e.seq <= last) return;
+  last = e.seq;
+  const keep = stick();
+  if (!started) started = e.ts;
+  const k = e.kind;
+  if (k === "message") {
+    endWork();
+    const m = el("div", "msg " + e.agent);
+    const to = e.agent === "user" && e.to && e.to.length === 1 ? `<br><span class="to">to ${NAME[e.to[0]]}</span>` : "";
+    const text = e.agent === "user" ? String(e.text).replace(/^\s*((@(claude|codex)\b[\s,]*)+)/i, "") : e.text;
+    m.innerHTML = `<div class="who">${NAME[e.agent]}${to}</div><div class="body">${md(text)}</div>`;
+    add(m, keep);
+  } else if (k === "tool" || k === "tool_result" || k === "file_change" || k === "reasoning") {
+    const box = workBox(e.agent);
+    if (!box.isConnected) add(box, keep);
+    let line;
+    if (k === "tool") { line = el("div", "tool", `${esc(e.name === "shell" || e.name === "Bash" ? "$" : e.name)} ${esc(e.detail)}`); bump(box, e.agent); }
+    else if (k === "tool_result") { line = el("div", "tool", `<span class="res ${e.error ? "bad" : ""}">${esc(e.text)}</span>`); }
+    else if (k === "file_change") { line = el("div", "tool", esc((e.paths || []).map((p, i) => `${(e.kinds || [])[i] || "edit"} ${p}`).join("\n"))); bump(box, e.agent, true); }
+    else { line = el("div", "tool reason", esc(e.text)); if (box.dataset.n == 0 && box.dataset.f == 0) box.querySelector("summary").textContent = `${NAME[e.agent]} is thinking`; }
+    box.appendChild(line);
+    if (keep) chat.scrollTop = chat.scrollHeight;
+  } else if (k === "card_open") { endWork(); card(e, true); }
+  else if (k === "card_resolved") closeCard(e);
+  else if (k === "blocked") { endWork(); add(el("div", "sys err", `Blocked for ${esc(NAME[e.by] || e.by || "")}: <code>${esc(e.summary || e.detail)}</code> ${esc(e.reason)}`), keep); }
+  else if (k === "error") { endWork(); add(el("div", "sys err", esc(e.text)), keep); }
+  else if (k === "report") { endWork(); add(el("div", "sys", `Report written: <code>${esc(e.path)}</code>`), keep); }
+  else if (k === "status") {
+    if (e.goal) $("goal").textContent = e.goal;
+    if (e.flag === "circles") { add(el("div", "sys flag", esc(e.text)), keep); return; }
+    if (e.status) status = e.status;
+    if (e.phase) phase = e.phase;
+    if (status === "paused") banner(`Paused: ${e.reason || ""}`, "ask");
+    else if (status === "done") banner("They both say it is done. The report is below.", "");
+    else if (status === "stopped") banner("Stopped. A partial report is below.", "");
+    else banner("");
+    if (e.phase === "build" && e.status === "running") add(el("div", "sys", "Plan approved. They are building."), keep);
+    setPhase();
+  }
+  if (k === "message" || k === "file_change" || k === "card_resolved") refreshPlan();
+}
+
+let planTimer = null;
+function refreshPlan() {
+  clearTimeout(planTimer);
+  planTimer = setTimeout(async () => {
+    try {
+      const r = await fetch(`/plan?t=${encodeURIComponent(T)}`);
+      const txt = await r.text();
+      if (txt.trim()) $("plan").innerHTML = md(txt);
+    } catch {}
+  }, 400);
+}
+
+async function post(path, body) {
+  try {
+    const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json", "X-Duo-Token": T }, body: JSON.stringify(body) });
+    if (!r.ok) throw new Error(await r.text());
+  } catch (err) { add(el("div", "sys err", "Could not reach duo: " + esc(err.message)), true); }
+}
+
+function connect() {
+  const es = new EventSource(`/events?since=${last}&t=${encodeURIComponent(T)}`);
+  es.onmessage = (m) => handle(JSON.parse(m.data));
+  es.onerror = () => { es.close(); if (status !== "done" && status !== "stopped") setTimeout(connect, 1500); };
+}
+
+$("say").onsubmit = (ev) => {
+  ev.preventDefault();
+  const t = $("text").value.trim();
+  if (!t) return;
+  post("/say", { text: t });
+  $("text").value = ""; grow();
+};
+$("text").addEventListener("keydown", (ev) => { if (ev.key === "Enter" && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); $("say").requestSubmit(); } });
+function grow() { const t = $("text"); t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 160) + "px"; t.placeholder = /^\s*@codex/i.test(t.value) ? "" : t.placeholder; }
+$("text").addEventListener("input", grow);
+document.querySelectorAll(".chips button").forEach((b) => b.onclick = () => {
+  const t = $("text"); t.value = b.dataset.at + t.value.replace(/^\s*@(claude|codex)\s*/i, ""); t.focus(); grow();
+});
+$("pause").onclick = () => post("/control", { action: status === "paused" ? "resume" : "pause" });
+$("stop").onclick = () => { if (confirm("Stop both agents now? A partial report will still be written.")) post("/control", { action: "stop" }); };
+setInterval(() => {
+  if (!started || status === "done" || status === "stopped") return;
+  const s = Math.max(0, Math.floor(Date.now() / 1000 - started));
+  $("clock").textContent = `${Math.floor(s / 3600) ? Math.floor(s / 3600) + ":" : ""}${String(Math.floor(s / 60) % 60).padStart(Math.floor(s / 3600) ? 2 : 1, "0")}:${String(s % 60).padStart(2, "0")}`;
+}, 1000);
+connect();
+refreshPlan();
+</script>
+</body>
+</html>
