@@ -81,10 +81,17 @@ class Cli(unittest.TestCase):
         self.assertIn(os.path.join(d, "a.py"), snap)
         self.assertIn(os.path.join(d, "untracked.txt"), snap)
 
+    def test_protected_from_config_file(self):
+        home = tempfile.mkdtemp()
+        os.makedirs(os.path.join(home, ".config", "ecx"))
+        open(os.path.join(home, ".config", "ecx", "protected"), "w").write("# mine\n~/secret\n\n/abs/x\n")
+        with mock.patch.dict(os.environ, {"HOME": home, "ECX_PROTECTED": ""}):
+            self.assertEqual(cli.protected_paths(), [os.path.join(home, "secret"), "/abs/x"])
+
     def test_protected_from_env(self):
-        with mock.patch.dict(os.environ, {"ECX_PROTECTED": "~/a:/b"}):
+        with mock.patch.dict(os.environ, {"ECX_PROTECTED": "~/a:/b", "HOME": tempfile.mkdtemp()}):
             self.assertEqual(cli.protected_paths(), [os.path.expanduser("~/a"), "/b"])
-        with mock.patch.dict(os.environ, {"ECX_PROTECTED": ""}):
+        with mock.patch.dict(os.environ, {"ECX_PROTECTED": "", "HOME": tempfile.mkdtemp()}):
             self.assertEqual(cli.protected_paths(), [])
 
 

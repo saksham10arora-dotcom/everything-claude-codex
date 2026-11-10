@@ -36,26 +36,42 @@ class Request:
     input: dict
 
 
-OUTWARD = [
-    (r"\bgit\s+push\b", "pushes to a remote"),
+OUTWARD = [  # card: sends, publishes, deploys or reaches another machine. Fail closed: over-matching is fine.
+    (r"\bgit\b.*\bpush\b", "pushes to a remote"),
     (r"\bgh\s", "acts on GitHub"),
-    (r"\bcurl\b.*(-X\s*(POST|PUT|PATCH|DELETE)|--request\s+(POST|PUT|PATCH|DELETE)|--data|-d\s|-F\s|--form|-T\s|--upload-file)",
-     "sends data to the internet"),
+    (r"\bcurl\b.*(\s-X\s*(POST|PUT|PATCH|DELETE)|--request\s+(POST|PUT|PATCH|DELETE)|\s--data|\s-d|\s--json|\s-F|\s--form"
+     r"|\s-T\s|--upload-file)", "sends data to the internet"),
     (r"\bwget\b.*--post", "sends data to the internet"),
-    (r"\bnpm\s+publish\b|\byarn\s+publish\b|\bcargo\s+publish\b", "publishes a package"),
-    (r"\bvercel\b|\bnetlify\b|\bfly\s+deploy\b|\bfirebase\s+deploy\b", "deploys"),
-    (r"\btwine\s+upload\b", "publishes a package"),
-    (r"\b(ssh|scp|rsync|sftp)\b.*@", "connects to another machine"),
-    (r"\b(sendmail|mail|mailx)\b\s", "sends an email"),
+    (r"\b(http|https|xh)\s+(POST|PUT|PATCH|DELETE)\b", "sends data to the internet"),
+    (r"publish|deploy|release", "may publish, deploy or release something"),
+    (r"\b(docker|podman)\b.*\bpush\b", "pushes an image"),
+    (r"\b(vercel|netlify|firebase|flyctl|heroku|wrangler|gcloud|aws|az|twine)\b", "acts on a cloud service"),
+    (r"\b(ssh|scp|rsync|sftp|nc|ncat|telnet|ftp)\b", "connects to another machine"),
+    (r"(^|[;&|(]\s*)(sendmail|mail|mailx)\b", "sends an email"),
     (r"(\bnpm\s+(install|i)\b.*\s(-g|--global)\b)|\bbrew\s+install\b|\bsudo\s+pip\b|\bpip3?\s+install\b.*--user\b",
      "installs a global package"),
 ]
-READ_ONLY = ("ls", "cat", "head", "tail", "wc", "grep", "rg", "find", "git status", "git log", "git diff", "git show", "git ls-files", "git branch", "git rev-parse",
-             "git blame", "git grep", "du", "df", "date", "uname",
+DESTRUCTIVE = [  # card: discards work, rewrites history, or switches the branch they work on
+    (r"\bgit\b.*\b(clean|rebase|filter-branch|filter-repo|update-ref|restore|checkout|switch)\b",
+     "can discard work, rewrite history or switch branches"),
+    (r"\bgit\b.*\bstash\s+(drop|clear)\b", "throws away stashed work"),
+    (r"\bgit\b.*\bbranch\b.*(\s-[dDmMfc]\b|--delete|--move|--force)", "deletes, moves or forces a branch"),
+    (r"\bgit\b.*\bcommit\b.*(--amend|--all|\s-[a-zA-Z]*a[a-zA-Z]*\b)", "rewrites a commit or commits every change"),
+    (r"\bgit\b.*\badd\b(.*\s)?(-A\b|--all\b|-u\b|\.(\s|$))", "stages every file, including yours"),
+    (r"\bgit\b.*\bconfig\b.*--(global|system)\b", "changes your global git settings"),
+    (r"\bfind\b.*\s-(delete|exec|execdir|ok)\b", "can delete or change many files"),
+    (r"\b(truncate|unlink|shred|srm)\b", "destroys file contents"),
+    (r"\b(python3?|node|perl|ruby|bun|deno)\b\s+(-c|-e|--eval)\b.*(remove|unlink|rmtree|rmdir|rename|replace|truncate|"
+     r"system|subprocess|spawn|exec|urlopen|requests|fetch|http|socket|writeFile|open\()", "runs inline code that can "
+     "change files or reach the network"),
+]
+READ_ONLY = ("ls", "cat", "head", "tail", "wc", "grep", "rg", "git status", "git log", "git diff", "git show",
+             "git ls-files", "git rev-parse", "git blame", "git grep", "du", "df", "date", "uname",
              "pwd", "echo", "tree", "which", "python --version", "python3 --version", "node --version", "file", "stat")
-MCP_ACTS = re.compile(r"(send|reply|post|publish|create|delete|update|forward|trash|upload|share|respond|merge|push|fork|"
-                      r"comment|label|spam|draft|schedule|book|pay|transfer|submit|click|type|navigate|fill|form|"
-                      r"computer|run|execute|write|edit|remove|move|rename|set|add|invite|archive)", re.I)
+READ_VERBS = re.compile(r"^(get|list|search|read|fetch|query|find|describe|status|whoami|lookup|count|check|health|"
+                        r"recall|view|show|explain|path|smart_search|graph_search)", re.I)
+CLAUDE_SAFE = {"Task", "Agent", "TodoWrite", "TodoRead", "ToolSearch", "Skill", "LSP", "EnterPlanMode", "ExitPlanMode",
+               "BashOutput", "KillShell", "KillBash", "web"}
 WRAPPER = re.compile(r"^\s*(/bin/|/usr/bin/)?(ba|z)?sh\s+-l?c\s+(?P<q>['\"])(?P<body>.*)(?P=q)\s*$", re.S)
 
 
@@ -76,40 +92,110 @@ def _inside(path, root):
 
 
 def _touches_protected(text, ctx):
+    low = text.lower()
+    home = os.path.expanduser("~")
     for p in ctx.protected:
         p = os.path.normpath(os.path.expanduser(p))
-        home = os.path.expanduser("~")
-        variants = {p, p.replace(home, "~", 1), p.replace(home, "$HOME", 1)}
-        if any(v in text for v in variants):
-            return True
+        parent = os.path.dirname(p)
+        for base in {p, p.replace(home, "~", 1), p.replace(home, "$HOME", 1)}:
+            if base.lower() in low:
+                return True
+        for par in {parent, parent.replace(home, "~", 1), parent.replace(home, "$HOME", 1)}:
+            # a glob in the protected folder's parent can reach it (ls ~/Downloads/y*)
+            if re.search(re.escape(par.lower()) + r"/[^\s/]*[*?\[]", low):
+                return True
     return False
 
 
-def _rm_targets(cmd):
+def _existed(p, ctx):
+    """Was there before this run: in the start snapshot, or on disk now and not made by the agents (covers ignored
+    files like .env that the snapshot never saw)."""
+    return (p in ctx.existed or os.path.lexists(p)) and p not in ctx.created
+
+
+def _words(cmd):
     try:
-        words = shlex.split(cmd)
+        return shlex.split(cmd, posix=True)
     except ValueError:
         return None
+
+
+SEPARATORS = {"&&", ";", "||", "|", "&"}
+
+
+def _args_of(words, names):
+    """[(command, [args])] for every use of one of `names` in a command chain (git rm counts as rm)."""
     out, i = [], 0
     while i < len(words):
         w = words[i]
-        if w == "rm" or (w == "git" and i + 1 < len(words) and words[i + 1] == "rm"):
-            i += 2 if w == "git" else 1
-            while i < len(words) and words[i] not in ("&&", ";", "||", "|"):
-                if not words[i].startswith("-"):
-                    out.append(words[i])
-                elif "r" in words[i].lstrip("-") or "R" in words[i]:
-                    out.append("<recursive>")
+        name = None
+        if w in names:
+            name, i = w, i + 1
+        elif w == "git" and i + 1 < len(words) and words[i + 1] in names:
+            name, i = words[i + 1], i + 2
+        if name:
+            args = []
+            while i < len(words) and words[i] not in SEPARATORS:
+                args.append(words[i])
                 i += 1
+            out.append((name, args))
         i += 1
     return out
 
 
+def _risky_target(t, ctx):
+    if any(ch in t for ch in "$~`*?[") or t.startswith("-"):
+        return True
+    p = _abs(t, ctx)
+    return not _inside(p, ctx.workdir) or os.path.isdir(p) or _existed(p, ctx)
+
+
+def _structure(cmd, ctx):
+    """Card reasons that need the command's shape, not just a pattern."""
+    for m in re.finditer(r"(?:^|[;&|(]\s*)cd(?:\s+([^\s;&|)]+))?", cmd):
+        t = m.group(1)
+        if not t or any(ch in t for ch in "$~`") or not _inside(_abs(t, ctx), ctx.workdir):
+            return "changes directory out of the work folder"
+    for m in re.finditer(r"(?<![<\d&])(>>?)\s*([^\s;&|)]+)", cmd):
+        t = m.group(2).strip("'\"")
+        if t in ("/dev/null", "/dev/stderr", "/dev/stdout") or t.startswith("&"):
+            continue
+        p = _abs(t, ctx)
+        if any(ch in t for ch in "$`") or not _inside(p, ctx.workdir):
+            return f"writes to {t}, outside the work folder"
+        if m.group(1) == ">" and _existed(p, ctx):
+            return f"overwrites {t}, which was there before this run"
+    for m in re.finditer(r"\btee\s+((?:-\S+\s+)*)([^\s;&|)]+)", cmd):
+        p = _abs(m.group(2), ctx)
+        if not _inside(p, ctx.workdir) or ("-a" not in m.group(1) and _existed(p, ctx)):
+            return f"writes to {m.group(2)} with tee"
+    words = _words(cmd)
+    if words is None:
+        return "has quoting duo cannot read"
+    for name, args in _args_of(words, {"rm", "mv"}):
+        files = [a for a in args if not a.startswith("-")]
+        if name == "rm":
+            if not files or any("r" in a.lower() for a in args if a.startswith("-") and not a.startswith("--")) \
+                    or "--recursive" in args:
+                return "deletes a folder or unnamed files"
+            for t in files:
+                if _risky_target(t, ctx):
+                    return f"deletes {t}, which was there before this run (or is outside the work folder)"
+        else:
+            if len(files) < 2:
+                return "moves files"
+            for t in files[:-1]:
+                if _risky_target(t, ctx):
+                    return f"moves {t}, which was there before this run"
+            dest = _abs(files[-1], ctx)
+            if not _inside(dest, ctx.workdir) or (os.path.lexists(dest) and not os.path.isdir(dest) and _existed(dest, ctx)):
+                return f"moves files to {files[-1]}"
+    return None
+
+
 TESTS = ("pytest", "python -m pytest", "python3 -m pytest", "python -m unittest", "python3 -m unittest", "npm test",
          "npm run test", "yarn test", "pnpm test", "cargo test", "go test", "make test", "bun test")
-SAFE_PIPE_TARGETS = ("head", "tail", "wc", "grep", "rg", "sort", "uniq", "cut", "cat", "less", "awk", "sed -n", "tr")
-
-
+SAFE_PIPE_TARGETS = ("head", "tail", "wc", "grep", "rg", "uniq", "cut", "cat", "less", "awk", "sed -n", "tr")
 ENV_PREFIX = re.compile(r"^\s*(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)+")
 
 
@@ -122,9 +208,9 @@ def _read_only(cmd, ctx):
         if not _inside(_abs(m.group(1).strip("'\""), ctx), run_folder):
             return False
         c = c.replace(m.group(0), " ")
-    if re.search(r">|`|\$\(|\btee\b|\bsed\s+-i", c):
+    if re.search(r">|`|\$\(|\btee\b|\bsed\s+-i|\s-o\s|--output", c):
         return False
-    for part in re.split(r"&&|\|\||;|\|", c):
+    for part in re.split(r"&&|\|\||;|\||&|\n", c):
         p = ENV_PREFIX.sub("", part.strip().strip("()").strip())
         if not p:
             continue
@@ -140,18 +226,12 @@ def _bash(req, ctx):
         return "block", why
     if decision == "ask":
         return "card", why
-    for rx, what in OUTWARD:
+    for rx, what in OUTWARD + DESTRUCTIVE:
         if re.search(rx, cmd, re.I):
             return "card", f"This command {what}."
-    if re.search(r"\b(rm|git\s+rm)\b", cmd):
-        targets = _rm_targets(cmd)
-        if targets is None or not targets:
-            return "card", "This command deletes files."
-        for t in targets:
-            p = _abs(t, ctx)
-            if t == "<recursive>" or any(ch in t for ch in "*?[") or p in ctx.existed or os.path.isdir(p) \
-                    or not _inside(p, ctx.workdir):
-                return "card", f"This command deletes {t if t != '<recursive>' else 'a folder'}, which was there before this run."
+    shape = _structure(cmd, ctx)
+    if shape:
+        return "card", f"This command {shape}."
     if ctx.phase == "plan" and not _read_only(cmd, ctx):
         return "card", "The plan is not approved yet, and this command may change things."
     return "allow", ""
@@ -167,17 +247,17 @@ def _file(req, ctx):
         return "block", "The plan is not approved yet. Write notes in the run folder."
     if not _inside(p, ctx.workdir):
         return "card", f"This changes {p}, outside the work folder."
-    if t == "delete" and p in ctx.existed:
+    if t == "delete" and _existed(p, ctx):
         return "card", f"This deletes {os.path.relpath(p, ctx.workdir)}, which was there before this run."
-    if t == "write" and p in ctx.existed and p not in ctx.created:
+    if t == "write" and _existed(p, ctx):
         return "card", f"This replaces {os.path.relpath(p, ctx.workdir)} wholesale."
     return "allow", ""
 
 
 def classify(req, ctx):
-    """-> ("allow" | "card" | "block", reason)"""
+    """-> ("allow" | "card" | "block", reason). Anything duo does not recognise as safe gets a card."""
     blob = " ".join(str(v) for v in req.input.values())
-    if _touches_protected(blob, ctx) or _touches_protected(str(req.input.get("args", "")), ctx):
+    if _touches_protected(blob, ctx):
         return "block", "That path is protected. Agents never touch it."
     if req.tool == "bash":
         return _bash(req, ctx)
@@ -186,7 +266,9 @@ def classify(req, ctx):
     if req.tool == "mcp" or req.tool.startswith("mcp__"):
         name = req.input.get("name") or req.tool
         last = re.split(r"__|\.|/", name)[-1]
-        if MCP_ACTS.search(last):
-            return "card", f"The tool {name} can act outside this folder (send, publish, change or click)."
+        if READ_VERBS.match(last):
+            return "allow", ""
+        return "card", f"The tool {name} may act outside this folder (send, post, click, change or schedule)."
+    if req.tool in CLAUDE_SAFE:
         return "allow", ""
-    return "allow", ""
+    return "card", f"duo does not know the tool {req.tool}, so it asks first."

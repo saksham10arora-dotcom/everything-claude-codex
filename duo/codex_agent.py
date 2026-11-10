@@ -82,9 +82,18 @@ def approval_to_request(method, params, items):
             cmd = " ".join(shlex.quote(c) for c in cmd)
         return [Request("codex", "bash", {"command": cmd or ""})]
     if method in ("item/fileChange/requestApproval", "applyPatchApproval"):
-        kind_tool = {"add": "write", "delete": "delete", "update": "edit"}
-        return [Request("codex", kind_tool.get(k, "edit"), {"path": p}) for p, k in _paths(items.get(params.get("itemId"), {}))] \
-            or [Request("codex", "edit", {"path": "(unknown file)"})]
+        out = []
+        for c in (items.get(params.get("itemId")) or {}).get("changes") or []:
+            kind = c.get("kind") or {}
+            t, path = kind.get("type"), c.get("path", "")
+            if t == "update" and kind.get("move_path"):  # a rename: the old file goes away, a new one appears
+                out += [Request("codex", "delete", {"path": path}), Request("codex", "write", {"path": kind["move_path"]})]
+            elif t in ("add", "delete", "update"):
+                out.append(Request("codex", {"add": "write", "delete": "delete", "update": "edit"}[t], {"path": path}))
+            else:
+                out.append(Request("codex", "unknown_patch", {"path": path, "kind": str(t)}))
+        # duo cannot see which files this patch touches: ask instead of guessing
+        return out or [Request("codex", "unknown_patch", {"path": "(files unknown to duo)"})]
     if method == "mcpServer/elicitation/request" and (params.get("_meta") or {}).get("codex_approval_kind") == "mcp_tool_call":
         m = re.search(r'run tool "([^"]+)"', params.get("message") or "")
         raw = (params.get("_meta") or {}).get("tool_params") or "{}"
@@ -113,12 +122,13 @@ class CodexAgent(Agent):
         self._queue = []
         self._closing = False
         self._reader = None
+        self._extra_mcp = []
 
     def _cmd(self, home):
         exe = shlex.split(os.environ.get("ECX_DUO_CODEX_BIN", "codex"))
         cmd = exe + ["app-server", "-c", "features.codex_hooks=false",
                      "-c", 'apps._default.default_tools_approval_mode="prompt"']
-        for s in mcp_servers(os.path.join(home, "config.toml")):
+        for s in sorted(set(mcp_servers(os.path.join(home, "config.toml"))) | set(self._extra_mcp)):
             cmd += ["-c", f'mcp_servers.{s}.default_tools_approval_mode="prompt"']
         return cmd
 
@@ -137,8 +147,7 @@ class CodexAgent(Agent):
             raise RuntimeError(f"codex {method}: {msg['error']}")
         return msg.get("result") or {}
 
-    async def start(self, brief, first_message):
-        home = codex_home()
+    async def _launch(self, home):
         self.proc = await asyncio.create_subprocess_exec(
             *self._cmd(home), cwd=self.workdir, env={**os.environ, "CODEX_HOME": home},
             stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=self._stderr(),
@@ -146,6 +155,25 @@ class CodexAgent(Agent):
         self._reader = asyncio.create_task(self._read())
         await self._call("initialize", {"clientInfo": {"name": "ecx-duo", "version": "1"}})
         await self._write({"method": "initialized"})
+
+    async def _loaded_mcp(self):
+        try:
+            res = await self._call("mcpServerStatus/list", {"detail": "toolsAndAuthOnly"})
+        except (RuntimeError, asyncio.TimeoutError):
+            return []
+        return [d.get("name") for d in res.get("data") or [] if d.get("name")]
+
+    async def start(self, brief, first_message):
+        home = codex_home()
+        await self._launch(home)
+        known = set(mcp_servers(os.path.join(home, "config.toml")))
+        extra = [n for n in await self._loaded_mcp() if n not in known]
+        if extra:  # servers from somewhere duo did not parse (a project .codex/config.toml): relaunch with prompts on
+            self._extra_mcp = extra
+            self._closing = True
+            await self.close()
+            self._closing = False
+            await self._launch(home)
         params = {"cwd": self.workdir, "ephemeral": True, "approvalPolicy": "untrusted", "sandbox": "read-only",
                   "developerInstructions": brief}
         if self.model:
@@ -179,7 +207,11 @@ class CodexAgent(Agent):
         params = {"threadId": self.thread, "input": inp, "sandboxPolicy": self._sandbox()}
         if self.effort:
             params["effort"] = self.effort
-        res = await self._call("turn/start", params)
+        try:
+            res = await self._call("turn/start", params)
+        except Exception:
+            self.busy = False  # no turn is running; never leave later messages stuck in the queue
+            raise
         self.turn = (res.get("turn") or {}).get("id") or self.turn
 
     async def _read(self):

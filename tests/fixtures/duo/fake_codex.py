@@ -22,6 +22,11 @@ for line in sys.stdin:
     m = f.get("method")
     if m == "initialize":
         emit({"jsonrpc": "2.0", "id": f["id"], "result": {}})
+    elif m == "mcpServerStatus/list":
+        names = [n for n in os.environ.get("FAKE_MCP", "").split(",") if n]
+        emit({"jsonrpc": "2.0", "id": f["id"], "result": {"data": [{"name": n} for n in names], "nextCursor": None}})
+    elif m == "turn/start" and os.environ.get("FAKE_FAIL_TURN"):
+        emit({"jsonrpc": "2.0", "id": f["id"], "error": {"code": -1, "message": "model unavailable"}})
     elif m == "thread/start":
         emit({"jsonrpc": "2.0", "id": f["id"], "result": {"thread": {"id": "th1"}}})
     elif m == "turn/start":

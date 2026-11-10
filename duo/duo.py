@@ -91,8 +91,21 @@ def snapshot(workdir):
     return {os.path.join(workdir, f) for f in files if f}
 
 
+PROTECTED_FILE = "~/.config/ecx/protected"
+
+
 def protected_paths():
-    return [os.path.expanduser(p) for p in os.environ.get("ECX_PROTECTED", "").split(":") if p]
+    """ECX_PROTECTED (colon-separated) plus one path per line in ~/.config/ecx/protected."""
+    paths = [p for p in os.environ.get("ECX_PROTECTED", "").split(":") if p]
+    f = os.path.expanduser(PROTECTED_FILE)
+    if os.path.isfile(f):
+        paths += [ln.strip() for ln in open(f) if ln.strip() and not ln.strip().startswith("#")]
+    out = []
+    for p in paths:
+        p = os.path.expanduser(p)
+        if p not in out:
+            out.append(p)
+    return out
 
 
 def main(argv=None):
@@ -120,6 +133,9 @@ def main(argv=None):
         return 1
     for w in allow_rule_warnings(workdir):
         print(f"warning: {w}", file=sys.stderr)
+    if not protected_paths():
+        print(f"warning: no protected paths set. Put folders agents must never touch in {PROTECTED_FILE} "
+              "(one per line) or ECX_PROTECTED.", file=sys.stderr)
 
     ts = time.strftime("%Y%m%d-%H%M%S")
     previous = git(workdir, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip()

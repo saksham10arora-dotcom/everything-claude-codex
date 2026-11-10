@@ -46,7 +46,7 @@ header { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; pad
 .phase { color: var(--ink); background: var(--raise); border: 1px solid var(--line); border-radius: 99px; padding: 2px 10px; }
 .phase.paused { color: var(--ask); border-color: var(--ask); }
 .phase.done { color: var(--ok); border-color: var(--ok); }
-.phase.stopped { color: var(--no); border-color: var(--no); }
+.phase.stopped, .phase.crashed, .phase.failed { color: var(--no); border-color: var(--no); }
 #stop { border-color: oklch(0.45 0.08 25); }
 
 main { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; }
@@ -241,7 +241,7 @@ function setPhase() {
   p.className = "phase " + (status !== "running" ? status : "");
   p.textContent = status === "running" ? (phase === "plan" ? "planning" : "building") : status;
   $("pause").textContent = status === "paused" ? "Resume" : "Pause";
-  $("pause").disabled = $("stop").disabled = status === "done" || status === "stopped";
+  $("pause").disabled = $("stop").disabled = ["done", "stopped", "crashed", "failed"].includes(status);
 }
 
 function handle(e) {
@@ -280,6 +280,8 @@ function handle(e) {
     if (status === "paused") banner(`Paused: ${e.reason || ""}`, "ask");
     else if (status === "done") banner("They both say it is done. The report is below.", "");
     else if (status === "stopped") banner("Stopped. A partial report is below.", "");
+    else if (status === "crashed") banner("An agent crashed, so the run ended. The report is below.", "ask");
+    else if (status === "failed") banner("duo could not start both agents. See the error above.", "ask");
     else banner("");
     if (e.phase === "build" && e.status === "running") add(el("div", "sys", "Plan approved. They are building."), keep);
     setPhase();
@@ -309,7 +311,7 @@ async function post(path, body) {
 function connect() {
   const es = new EventSource(`/events?since=${last}&t=${encodeURIComponent(T)}`);
   es.onmessage = (m) => handle(JSON.parse(m.data));
-  es.onerror = () => { es.close(); if (status !== "done" && status !== "stopped") setTimeout(connect, 1500); };
+  es.onerror = () => { es.close(); if (!["done", "stopped", "crashed", "failed"].includes(status)) setTimeout(connect, 1500); };
 }
 
 $("say").onsubmit = (ev) => {

@@ -47,11 +47,15 @@ class Orchestrator:
         self._unpaused = None
         self.ping_fn = notify.ping
         self.talk_streak = 0
+        self.interrupt_timeout = 5.0
         for n, a in agents.items():
-            a.on_event = lambda kind, data, n=n: self._on_event(n, kind, data)
-            a.on_approval = self._approval
-            a.on_turn_end = lambda n=n: self._turn_end(n)
-            a.on_exit = lambda code, n=n: self._on_exit(n, code)
+            self._wire(n, a)
+
+    def _wire(self, n, a):
+        a.on_event = lambda kind, data, n=n: self._on_event(n, kind, data)
+        a.on_approval = self._approval
+        a.on_turn_end = lambda n=n: self._turn_end(n)
+        a.on_exit = lambda code, n=n: self._on_exit(n, code)
 
     # ------------------------------------------------------------------ run
     async def run(self, goal):
@@ -65,7 +69,11 @@ class Orchestrator:
         for n in self.agents:
             self._tasks.append(asyncio.ensure_future(self._sender(n)))
         self._tasks.append(asyncio.ensure_future(self._watchdog()))
-        await asyncio.gather(*(self._start(n) for n in self.agents))
+        try:
+            await asyncio.gather(*(self._start(n) for n in self.agents))
+        except Exception as e:
+            self.log.add("duo", "error", who="duo", text=f"Could not start both agents: {e}")
+            await self.finish("failed")
         try:
             return await self._finished
         finally:
@@ -137,10 +145,11 @@ class Orchestrator:
         self._schedule_idle_check()
 
     def _on_exit(self, n, code):
-        if self.status in ("done", "stopped"):
+        if self.status in ("done", "stopped", "crashed", "failed"):
             return
         self.log.add("duo", "error", who=n, text=f"{NAMES[n]} stopped unexpectedly (exit {code}).")
-        self._pause(f"{NAMES[n]} stopped unexpectedly")
+        self.ping_fn("duo stopped", f"{NAMES[n]} crashed. The run ended and the report was written.")
+        asyncio.ensure_future(self.finish("crashed"))  # v1: a crashed run is reviewed, never continued solo
 
     # ----------------------------------------------------------------- idle
     def _schedule_idle_check(self):
@@ -185,15 +194,15 @@ class Orchestrator:
             self._unpaused.set()
             self._broadcast(f"[duo] {self.user} resumed the run. Carry on.")
         elif action == "stop":
-            await self._interrupt_all()
             await self.finish("stopped")
 
     async def _interrupt_all(self):
-        for a in self.agents.values():
+        async def one(a):
             try:
-                await a.interrupt()
+                await asyncio.wait_for(a.interrupt(), self.interrupt_timeout)
             except Exception:
                 pass
+        await asyncio.gather(*(one(a) for a in self.agents.values()))
 
     def _pause(self, reason, ping=True):
         if self.status != "running":
@@ -235,12 +244,12 @@ class Orchestrator:
         """Thread-safe: called from the web server."""
         self.loop.call_soon_threadsafe(self._resolve, card_id, decision, note)
 
-    def _resolve(self, card_id, decision, note):
+    def _resolve(self, card_id, decision, note, by="user"):
         c = self.cards.pop(card_id, None)
         if not c or c["future"].done():
             return
         decision = "approve" if decision == "approve" else "deny"
-        self.log.add("user", "card_resolved", id=card_id, decision=decision, note=note)
+        self.log.add(by, "card_resolved", id=card_id, decision=decision, note=note)
         c["future"].set_result((decision, note))
 
     # ---------------------------------------------------------- plan / done
@@ -285,24 +294,31 @@ class Orchestrator:
             self._broadcast(f"[{self.user} sent the plan back]: {note or 'Rework the plan.'}")
 
     async def finish(self, status):
-        if self.status in ("done", "stopped"):
+        if self.status in ("done", "stopped", "crashed", "failed"):
             return
         self.status = status
-        for c in list(self.cards.values()):
-            if not c["future"].done():
-                c["future"].set_result(("deny", "run ended"))
-        self.cards.clear()
-        for a in self.agents.values():
-            try:
-                await a.close()
-            except Exception:
-                pass
-        if self.report_fn:
-            path = self.report_fn(self.run_dir, self.log.all(), self.workdir, status)
-            self.log.add("duo", "report", path=path)
-        self.log.add("duo", "status", status=status)
-        if self._finished and not self._finished.done():
-            self._finished.set_result(status)
+        try:
+            note = "run stopped" if status == "stopped" else "run ended"
+            for cid in list(self.cards):  # deny and log open cards first, so nothing waits on a slow interrupt
+                self._resolve(cid, "deny", note, by="duo")
+            if self._unpaused:
+                self._unpaused.set()
+            await self._interrupt_all()
+            for a in self.agents.values():
+                try:
+                    await asyncio.wait_for(a.close(), 15)
+                except Exception:
+                    pass
+            if self.report_fn:
+                try:
+                    path = self.report_fn(self.run_dir, self.log.all(), self.workdir, status)
+                    self.log.add("duo", "report", path=path)
+                except Exception as e:
+                    self.log.add("duo", "error", who="duo", text=f"Could not write the report: {e!r}")
+            self.log.add("duo", "status", status=status)
+        finally:
+            if self._finished and not self._finished.done():
+                self._finished.set_result(status)
 
     # ----------------------------------------------------------------- user
     def say(self, text):

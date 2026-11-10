@@ -144,12 +144,12 @@ cd your-repo && ~/ecx/bin/ecx duo "make the failing login test pass"
 ```
 Both agents start on the same goal, on a new branch, and a local page opens with one chat where you see both of them talk, argue and work. Nobody is in charge: they split the work themselves and are told to push back instead of agreeing to be polite.
 - **You approve the plan** before anything is built.
-- **Risky actions wait for you** as cards: deleting or replacing files, `git push`, publishing, deploying, sending messages, MCP tools that send or post, global installs. Your protected paths (`ECX_PROTECTED=~/private:~/other`) are blocked outright.
+- **Risky actions wait for you** as cards: deleting or replacing files that were there before, `git push` and other history or branch changes, publishing, deploying, sending data out, any MCP tool that is not a plain read, and any tool duo does not know. Folders listed in `~/.config/ecx/protected` (or `ECX_PROTECTED`) are blocked outright.
 - **Talk to one or both:** `@codex try the smaller fix` goes to Codex only; anything else goes to both.
 - **Pause, resume, stop** any time. Ctrl-C stops too. It also pauses and pings you after 2 hours (`--hours`), if an agent crashes, or if both go idle.
 - **The report has two parts:** their own summary, and an action log duo writes from the raw events, which they cannot edit: every command, every card and your answer, and the risky things listed first.
 
-Runs on your existing Claude Code and Codex logins (Sonnet and Codex's default model; `--best` for top models). Duo sessions never show up in your normal Claude or Codex history. Honest limits: you see what they say and do, not their hidden reasoning; Codex's app-server protocol is marked experimental. Details in [`duo/PROTOCOL.md`](duo/PROTOCOL.md).
+Runs on your existing Claude Code and Codex logins (Sonnet and Codex's default model; `--best` for top models). Duo sessions never show up in your normal Claude or Codex history. Honest limits: duo judges each command and tool call, not what a script does once it runs, so a script an agent writes and then runs is only as safe as your review of the plan (it runs on its own branch, and every action is in the log). You see what they say and do, not their hidden reasoning. Codex's app-server protocol is marked experimental. Details in [`duo/PROTOCOL.md`](duo/PROTOCOL.md).
 
 ### 7. Skills that run your week
 `/boot` gives you a 30-second briefing. `/daily` starts the day. `/opps` is your opportunity pipeline with eligibility checks. `/outreach` and `/email` handle networking with a paper trail. `/content` and `/brand` are a content machine in your voice. `/catchup` continues another window's chat. `/ship` commits, pushes and proves it.

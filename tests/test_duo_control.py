@@ -76,14 +76,13 @@ class Control(unittest.TestCase):
             task.cancel()
         asyncio.run(go())
 
-    def test_agent_crash_pauses_and_logs(self):
+    def test_agent_crash_ends_run_and_logs(self):
         async def go():
             o, a, log, task, pings = await started()
             a["codex"].on_exit(1); await tick()
-            self.assertEqual(o.status, "paused")
+            self.assertEqual(o.status, "crashed")
             self.assertTrue(any(e["kind"] == "error" and "Codex" in e["text"] for e in log.all()))
             self.assertEqual(len(pings), 1)
-            task.cancel()
         asyncio.run(go())
 
     def test_circle_flag_once_per_streak(self):
