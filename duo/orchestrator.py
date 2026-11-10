@@ -34,7 +34,7 @@ class Orchestrator:
         self.ready = {n: None for n in agents}
         self.cards = {}  # id -> {"future", "card", ...}
         self.activity = {n: [] for n in agents}
-        self.outbox = {n: asyncio.Queue() for n in agents}
+        self.outbox = {}  # created in run(): asyncio objects must belong to the running loop (Python 3.9)
         self.nudges = 0
         self.turns = 0
         self.started_at = time.time()
@@ -43,8 +43,7 @@ class Orchestrator:
         self._idle_task = None
         self._card_n = 0
         self._tasks = []
-        self._unpaused = asyncio.Event()
-        self._unpaused.set()
+        self._unpaused = None
         self.ping_fn = notify.ping
         self.talk_streak = 0
         for n, a in agents.items():
@@ -57,6 +56,9 @@ class Orchestrator:
     async def run(self, goal):
         self.loop = asyncio.get_running_loop()
         self._finished = self.loop.create_future()
+        self.outbox = {n: asyncio.Queue() for n in self.agents}
+        self._unpaused = asyncio.Event()
+        self._unpaused.set()
         self.goal = goal
         self.log.add("duo", "status", status="running", phase="plan", goal=goal)
         for n in self.agents:

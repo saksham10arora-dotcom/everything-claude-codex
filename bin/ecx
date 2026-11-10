@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# ecx <command>: entry point for ECX tools.
+ECX="$(cd "$(dirname "$(readlink -f "$0" 2>/dev/null || echo "$0")")/.." && pwd)"
+case "$1" in
+  duo) shift; exec python3 "$ECX/duo/duo.py" "$@" ;;
+  *) echo "usage: ecx duo \"<goal>\" [--best] [--hours H] [--user NAME]"; exit 1 ;;
+esac
