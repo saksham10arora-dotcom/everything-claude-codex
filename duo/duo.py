@@ -45,7 +45,7 @@ def preflight(workdir):
     if git(workdir, "rev-parse", "--is-inside-work-tree").returncode:
         problems.append(NOT_GIT)
     else:
-        dirty = [l for l in git(workdir, "status", "--porcelain").stdout.splitlines() if not l[3:].startswith(".duo/")]
+        dirty = [l for l in git(workdir, "status", "--porcelain", "--untracked-files=no").stdout.splitlines() if not l[3:].startswith(".duo/")]
         if dirty:
             problems.append("Commit or stash your changes first, so their commits never mix with your work.")
         if not git(workdir, "rev-parse", "--verify", "HEAD").stdout.strip():

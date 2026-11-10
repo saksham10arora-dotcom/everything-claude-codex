@@ -34,6 +34,13 @@ class Cli(unittest.TestCase):
         with mock.patch.dict(os.environ, {"ECX_VAULT": ""}):
             self.assertTrue(any("Commit or stash" in p for p in cli.preflight(d)))
 
+    def test_preflight_untracked_files_ok(self):
+        d = repo()
+        os.makedirs(os.path.join(d, "__pycache__"))
+        open(os.path.join(d, "__pycache__", "a.pyc"), "w").write("x")
+        with mock.patch.dict(os.environ, {"ECX_VAULT": ""}):
+            self.assertEqual(cli.preflight(d), [])
+
     def test_preflight_ignores_run_folder(self):
         d = repo()
         os.makedirs(os.path.join(d, ".duo", "r1"))
