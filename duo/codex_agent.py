@@ -200,6 +200,11 @@ class CodexAgent(Agent):
     async def set_phase(self, phase):
         self.phase = phase
 
+    async def set_power(self, level):
+        if not hasattr(self, "_base_effort"):
+            self._base_effort = self.effort
+        self.effort = "high" if level == "high" else self._base_effort  # applies from Codex's next turn
+
     async def send(self, text):
         inp = [{"type": "text", "text": text}]
         if self.busy and self.turn:

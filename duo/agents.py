@@ -59,3 +59,6 @@ class Agent:
 
     async def set_phase(self, phase):
         """Codex switches sandbox per phase; Claude needs nothing (the policy covers it)."""
+
+    async def set_power(self, level):
+        """"high": top model / effort from the next step on; "normal": back to the run's defaults."""

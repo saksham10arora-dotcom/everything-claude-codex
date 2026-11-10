@@ -31,6 +31,9 @@ class FakeAgent(Agent):
     async def set_phase(self, phase):
         self.phase = phase
 
+    async def set_power(self, level):
+        self.power = level
+
     # test helpers
     def say(self, text):
         self.on_event("message", {"text": text})

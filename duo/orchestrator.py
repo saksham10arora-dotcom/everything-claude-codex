@@ -26,7 +26,8 @@ class Limits:
 
 
 class Orchestrator:
-    def __init__(self, workdir, run_dir, agents, log, ctx, user, limits=None, brief_fn=None, report_fn=None):
+    def __init__(self, workdir, run_dir, agents, log, ctx, user, limits=None, brief_fn=None, report_fn=None,
+                 power="normal"):
         self.workdir, self.run_dir, self.agents, self.log, self.ctx, self.user = workdir, run_dir, agents, log, ctx, user
         self.limits = limits or Limits()
         self.brief_fn = brief_fn or context.brief
@@ -49,6 +50,8 @@ class Orchestrator:
         self.ping_fn = notify.ping
         self.talk_streak = 0
         self.interrupt_timeout = 5.0
+        self.power = power
+        self._working = {}
         for n, a in agents.items():
             self._wire(n, a)
 
@@ -66,7 +69,7 @@ class Orchestrator:
         self._unpaused = asyncio.Event()
         self._unpaused.set()
         self.goal = goal
-        self.log.add("duo", "status", status="running", phase="plan", goal=goal)
+        self.log.add("duo", "status", status="running", phase="plan", goal=goal, power=self.power)
         for n in self.agents:
             self._tasks.append(asyncio.ensure_future(self._sender(n)))
         self._tasks.append(asyncio.ensure_future(self._watchdog()))
@@ -84,6 +87,7 @@ class Orchestrator:
     async def _start(self, n):
         other = NAMES[OTHER[n]]
         brief = self.brief_fn(NAMES[n], other, self.goal, self.user, self.run_dir)
+        self._set_working(n, True)
         first = (f"[duo] The run has started. Goal: {self.goal}\n"
                  f"Start by reading the project and planning with {other}. The plan goes in "
                  f"{os.path.join(self.run_dir, 'plan.md')}.")
@@ -93,6 +97,7 @@ class Orchestrator:
         while True:
             text = await self.outbox[n].get()
             await self._unpaused.wait()
+            self._set_working(n, True)
             try:
                 await self.agents[n].send(text)
             except Exception as e:  # a dead agent is handled by on_exit
@@ -148,7 +153,13 @@ class Orchestrator:
         if pct >= self.limits.usage_pause:
             self._pause(f"{NAMES[n]}'s 5-hour usage limit is at {pct}%")
 
+    def _set_working(self, n, working):
+        if self._working.get(n) != working:
+            self._working[n] = working
+            self.log.add("duo", "turn", who=n, state="working" if working else "idle")
+
     def _turn_end(self, n):
+        self._set_working(n, False)
         self.turns += 1
         if self.turns >= self.limits.max_turns:
             self._pause(f"turn limit reached ({self.limits.max_turns})")
@@ -211,6 +222,14 @@ class Orchestrator:
             self._broadcast(f"[duo] {self.user} resumed the run. Carry on.")
         elif action == "stop":
             await self.finish("stopped")
+        elif action in ("high", "normal") and action != self.power:
+            self.power = action
+            for a in self.agents.values():
+                try:
+                    await a.set_power(action)
+                except Exception as e:
+                    self.log.add("duo", "error", who="duo", text=f"Could not switch models: {e}")
+            self.log.add("duo", "status", power=action)
 
     async def _interrupt_all(self):
         async def one(a):

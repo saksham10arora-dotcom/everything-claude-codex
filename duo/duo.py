@@ -155,7 +155,8 @@ def main(argv=None):
               "codex": CodexAgent(workdir, a.codex_model, effort)}
     for n, agent in agents.items():
         agent.stderr_path = os.path.join(run_dir, f"{n}.stderr.log")
-    orch = Orchestrator(workdir, run_dir, agents, log, ctx, a.user, Limits(hours=a.hours), report_fn=report.write)
+    orch = Orchestrator(workdir, run_dir, agents, log, ctx, a.user, Limits(hours=a.hours), report_fn=report.write,
+                        power="high" if a.best else "normal")
 
     async def go():
         loop = asyncio.get_running_loop()

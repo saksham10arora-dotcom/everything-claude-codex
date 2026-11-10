@@ -146,6 +146,13 @@ class ClaudeAgent(Agent):
         self.busy = True
         await self._write({"type": "user", "message": {"role": "user", "content": text}})
 
+    HIGH_MODEL = "opus"
+
+    async def set_power(self, level):
+        model = self.HIGH_MODEL if level == "high" else self.model
+        await self._write({"type": "control_request", "request_id": self._rid(),
+                           "request": {"subtype": "set_model", "model": model}})
+
     async def interrupt(self):
         await self._write({"type": "control_request", "request_id": self._rid(), "request": {"subtype": "interrupt"}})
 

@@ -10,7 +10,7 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 WEB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web", "index.html")
-ACTIONS = {"pause", "resume", "stop"}
+ACTIONS = {"pause", "resume", "stop", "high", "normal"}
 
 
 def start_server(log, orch, run_dir, port=0):
@@ -120,6 +120,9 @@ class ReplayOrch:
         self.log.add("user", "card_resolved", id=cid, decision=decision, note=note)
 
     def control(self, action):
+        if action in ("high", "normal"):
+            self.log.add("duo", "status", power=action)
+            return
         self.log.add("duo", "status", status={"pause": "paused", "resume": "running", "stop": "stopped"}[action],
                      reason=f"{action} (replay)")
 
@@ -134,9 +137,11 @@ if __name__ == "__main__":
     rd = tempfile.mkdtemp(prefix="duo-replay-")
     events = EventLog.load(a.replay)
     log = EventLog(os.path.join(rd, "events.jsonl"))
-    plan = os.path.join(os.path.dirname(a.replay), "sample_plan.md")
-    if os.path.exists(plan):
-        shutil.copy(plan, os.path.join(rd, "plan.md"))
+    for name in ("plan.md", "sample_plan.md"):  # a real run folder has plan.md; the test fixture has sample_plan.md
+        plan = os.path.join(os.path.dirname(a.replay), name)
+        if os.path.exists(plan):
+            shutil.copy(plan, os.path.join(rd, "plan.md"))
+            break
     url, _ = start_server(log, ReplayOrch(log), rd, a.port)
     print(url, flush=True)
     for e in events:  # replay with the original data, fresh seq numbers
