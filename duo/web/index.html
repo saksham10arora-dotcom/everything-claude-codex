@@ -82,7 +82,8 @@ main { grid-column: 1; grid-row: 2; display: grid; grid-template-rows: auto minm
 .banner.ask { background: var(--ask-bg); color: var(--ask-ink); }
 .banner.ok { background: oklch(0.94 0.05 150); color: oklch(0.38 0.11 150); }
 .banner.bad { background: oklch(0.95 0.03 25); color: var(--no); }
-#chat { overflow-y: auto; padding: 22px 20px 30px; }
+#chat { grid-row: 2; overflow-y: auto; padding: 22px 20px 30px; }
+.banner { grid-row: 1; } form.say { grid-row: 3; }
 .feed, #typing { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
 #typing { margin-top: 12px; }
 
