@@ -157,9 +157,8 @@ Runs on your existing Claude Code and Codex logins (Sonnet and Codex's default m
 | | Claude Code alone | Codex alone | ecx duo |
 |---|---|---|---|
 | Issues resolved | 2/6 | 2/6 | **3/6** |
-| Average time | 0.7 min | 1.6 min | 5.5 min |
 
-duo solved every issue that either agent solved alone; neither alone got all of those. It solved nothing both missed, and it is slower. Six issues with one run each is a first signal, not proof. Full table, method and a script to rerun it: [`bench/duo/RESULTS.md`](bench/duo/RESULTS.md).
+duo solved every issue that either agent solved alone; neither alone got all of those. Six issues with one run each is a first signal, not proof. Full table, method and a script to rerun it: [`bench/duo/RESULTS.md`](bench/duo/RESULTS.md).
 
 ### 7. Skills that run your week
 `/boot` gives you a 30-second briefing. `/daily` starts the day. `/opps` is your opportunity pipeline with eligibility checks. `/outreach` and `/email` handle networking with a paper trail. `/content` and `/brand` are a content machine in your voice. `/catchup` continues another window's chat. `/ship` commits, pushes and proves it.
