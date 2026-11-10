@@ -79,8 +79,11 @@ JSON-RPC 2.0 over stdio, one JSON object per line.
 - Interrupting while a command is already approved and running does not kill that command (probe: `sleep 30`
   still completed). Duo treats interrupt as "stop after the current step".
 
-## Open, check in the live smoke run
-
-- ChatGPT app connectors inside Codex (if any are connected) use `apps` approval settings, not `mcp_servers`.
-  The probe account showed none in use; duo passes `-c apps._default.default_tools_approval_mode="prompt"` and the
-  smoke run must confirm the key is accepted.
+- `item/fileChange/requestApproval` params carry only `itemId`; the paths come from the matching `item/started`
+  `fileChange` item (`changes: [{path, kind: {type: add|delete|update}, diff}]`). Verified: a patch deleting a file
+  produced the approval, and `decline` left the file in place (`codex_filechange.jsonl`). Under `untrusted`, even
+  `cat README.md` asks; the policy allows it.
+- Paths are reported as real paths (`/private/var/...` for `/var/...`); the policy resolves symlinks.
+- The user's AGENTS.md "confirm before deleting" rule makes Codex ask in chat before deleting, on top of duo's card.
+- ChatGPT app connectors use `-c apps._default.default_tools_approval_mode="prompt"` (key from the `AppsConfig`
+  schema; Codex accepts it without an "unrecognized setting" warning).

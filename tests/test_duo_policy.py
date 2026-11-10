@@ -107,6 +107,14 @@ class Policy(unittest.TestCase):
     def test_unknown_tool_allowed(self):
         self.assertEqual(classify(Request("claude", "TodoWrite", {}), ctx())[0], "allow")
 
+    def test_symlinked_workdir_matches_real_paths(self):
+        link = os.path.join(tempfile.mkdtemp(), "link")
+        os.symlink(WORK, link)
+        real = os.path.realpath(WORK)
+        c = ctx(workdir=link, existed={os.path.join(link, "old.py")})
+        self.assertEqual(classify(Request("codex", "edit", {"path": os.path.join(real, "x.py")}), c)[0], "allow")
+        self.assertEqual(classify(Request("codex", "delete", {"path": os.path.join(real, "old.py")}), c)[0], "card")
+
     def test_reason_given(self):
         self.assertTrue(classify(Request("claude", "bash", {"command": "git push"}), ctx())[1])
 

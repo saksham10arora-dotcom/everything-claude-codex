@@ -19,6 +19,15 @@ class Ctx:
     created: set = field(default_factory=set)
     protected: list = field(default_factory=list)
 
+    def __post_init__(self):
+        # agents report real paths (/private/var/...), the user may pass a symlinked one (/var/...)
+        self.workdir = os.path.realpath(os.path.expanduser(self.workdir))
+        self.existed = {os.path.realpath(p) for p in self.existed}
+        self.created = {os.path.realpath(p) for p in self.created}
+
+    def mark_created(self, path):
+        self.created.add(os.path.realpath(path))
+
 
 @dataclass
 class Request:
@@ -57,11 +66,11 @@ def unwrap(cmd):
 
 def _abs(path, ctx):
     p = os.path.expanduser(path or "")
-    return os.path.normpath(p if os.path.isabs(p) else os.path.join(ctx.workdir, p))
+    return os.path.realpath(p if os.path.isabs(p) else os.path.join(ctx.workdir, p))
 
 
 def _inside(path, root):
-    root = os.path.normpath(os.path.expanduser(root))
+    root = os.path.realpath(os.path.expanduser(root))
     return path == root or path.startswith(root + os.sep)
 
 
