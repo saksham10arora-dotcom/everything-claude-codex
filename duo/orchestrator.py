@@ -5,7 +5,7 @@ import re
 import time
 from dataclasses import dataclass
 
-from duo import context
+from duo import context, notify
 from duo.policy import classify
 
 NAMES = {"claude": "Claude", "codex": "Codex"}
@@ -43,6 +43,10 @@ class Orchestrator:
         self._idle_task = None
         self._card_n = 0
         self._tasks = []
+        self._unpaused = asyncio.Event()
+        self._unpaused.set()
+        self.ping_fn = notify.ping
+        self.talk_streak = 0
         for n, a in agents.items():
             a.on_event = lambda kind, data, n=n: self._on_event(n, kind, data)
             a.on_approval = self._approval
@@ -57,6 +61,7 @@ class Orchestrator:
         self.log.add("duo", "status", status="running", phase="plan", goal=goal)
         for n in self.agents:
             self._tasks.append(asyncio.ensure_future(self._sender(n)))
+        self._tasks.append(asyncio.ensure_future(self._watchdog()))
         await asyncio.gather(*(self._start(n) for n in self.agents))
         try:
             return await self._finished
@@ -76,10 +81,11 @@ class Orchestrator:
     async def _sender(self, n):
         while True:
             text = await self.outbox[n].get()
+            await self._unpaused.wait()
             try:
                 await self.agents[n].send(text)
             except Exception as e:  # a dead agent is handled by on_exit
-                self.log.add("duo", "error", agent=n, text=f"could not deliver a message: {e}")
+                self.log.add("duo", "error", who=n, text=f"could not deliver a message: {e}")
 
     def _send(self, n, text):
         self.outbox[n].put_nowait(text)
@@ -98,14 +104,22 @@ class Orchestrator:
             if tags:
                 self.log.add(n, "signal", ready=self.ready[n])
             self._send(OTHER[n], f"[{NAMES[n]}]: {text}")
+            self.talk_streak += 1
+            if self.talk_streak == self.limits.circle_after:
+                self.log.add("duo", "status", status=self.status, flag="circles", count=self.talk_streak,
+                             text=f"{self.talk_streak} messages in a row with no work in between. They may be going "
+                                  "in circles.")
             self._check_ready()
         elif kind in ("tool", "file_change"):
             self.nudges = 0
+            self.talk_streak = 0
             detail = data.get("detail") or ", ".join(data.get("paths") or [])
             self.activity[n].append(detail if kind == "tool" else f"changed {detail}")
 
     def _turn_end(self, n):
         self.turns += 1
+        if self.turns >= self.limits.max_turns:
+            self._pause(f"turn limit reached ({self.limits.max_turns})")
         if self.activity[n]:
             items = self.activity[n][:10]
             more = len(self.activity[n]) - len(items)
@@ -115,7 +129,10 @@ class Orchestrator:
         self._schedule_idle_check()
 
     def _on_exit(self, n, code):
-        self.log.add("duo", "error", agent=n, text=f"{NAMES[n]} stopped unexpectedly (exit {code}).")
+        if self.status in ("done", "stopped"):
+            return
+        self.log.add("duo", "error", who=n, text=f"{NAMES[n]} stopped unexpectedly (exit {code}).")
+        self._pause(f"{NAMES[n]} stopped unexpectedly")
 
     # ----------------------------------------------------------------- idle
     def _schedule_idle_check(self):
@@ -139,7 +156,46 @@ class Orchestrator:
                         "finished.")
 
     def _stalled(self):
-        self.log.add("duo", "status", status="stalled", text="Both agents stayed idle after repeated nudges.")
+        self._pause("both agents stayed idle after repeated nudges")
+
+    async def _watchdog(self):
+        await asyncio.sleep(self.limits.hours * 3600)
+        self._pause(f"time limit reached ({self.limits.hours:g} h)")
+
+    # -------------------------------------------------------------- control
+    def control(self, action):
+        """Thread-safe: "pause" | "resume" | "stop"."""
+        self.loop.call_soon_threadsafe(lambda: asyncio.ensure_future(self._control(action)))
+
+    async def _control(self, action):
+        if action == "pause":
+            self._pause(f"paused by {self.user}", ping=False)
+        elif action == "resume" and self.status == "paused":
+            self.status = "running"
+            self.nudges = 0
+            self.log.add("duo", "status", status="running", phase=self.phase)
+            self._unpaused.set()
+            self._broadcast(f"[duo] {self.user} resumed the run. Carry on.")
+        elif action == "stop":
+            await self._interrupt_all()
+            await self.finish("stopped")
+
+    async def _interrupt_all(self):
+        for a in self.agents.values():
+            try:
+                await a.interrupt()
+            except Exception:
+                pass
+
+    def _pause(self, reason, ping=True):
+        if self.status != "running":
+            return
+        self.status = "paused"
+        self._unpaused.clear()
+        self.log.add("duo", "status", status="paused", reason=reason)
+        asyncio.ensure_future(self._interrupt_all())
+        if ping:
+            self.ping_fn("duo paused", reason)
 
     # ------------------------------------------------------------ approvals
     async def _approval(self, ap):
