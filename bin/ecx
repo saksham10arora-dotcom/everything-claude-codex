@@ -1,7 +1,61 @@
 #!/usr/bin/env bash
 # ecx <command>: entry point for ECX tools.
+#
+#   ecx duo "goal" [duo options]     start Claude + Codex on a goal in the background; prints the live link
+#   ecx duo --fg "goal" [options]    same, but stay in the foreground (Ctrl-C stops)
+#
+# Settings: ~/.config/ecx/env (KEY=value lines, e.g. ECX_VAULT, ECX_USER) and ~/.config/ecx/protected.
+# Work folder: the current folder if it is a clean git repo outside your vault; otherwise ~/Desktop/duo-runs
+# (override with ECX_DUO_RUNS), a small git repo duo creates for goals that are not about one codebase.
+set -euo pipefail
 ECX="$(cd "$(dirname "$(readlink -f "$0" 2>/dev/null || echo "$0")")/.." && pwd)"
-case "$1" in
-  duo) shift; exec python3 "$ECX/duo/duo.py" "$@" ;;
-  *) echo "usage: ecx duo \"<goal>\" [--best] [--hours H] [--user NAME]"; exit 1 ;;
+[ -f "$HOME/.config/ecx/env" ] && { set -a; . "$HOME/.config/ecx/env"; set +a; }
+
+pick_workdir() {
+  local here vault
+  here="$(pwd -P)"
+  vault="${ECX_VAULT:+$(cd "$ECX_VAULT" 2>/dev/null && pwd -P)}"
+  if git -C "$here" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
+     && [ -z "$(git -C "$here" status --porcelain --untracked-files=no)" ] \
+     && { [ -z "$vault" ] || [[ "$here/" != "$vault/"* ]]; }; then
+    echo "$here"; return
+  fi
+  local runs="${ECX_DUO_RUNS:-$HOME/Desktop/duo-runs}"
+  if [ ! -d "$runs/.git" ]; then
+    mkdir -p "$runs"
+    git -C "$runs" init -q
+    printf '# duo runs\n\nWork folder for ecx duo goals that are not about one codebase. Each run gets its own branch.\n' > "$runs/README.md"
+    git -C "$runs" add README.md
+    git -C "$runs" commit -qm "duo runs folder"
+  fi
+  echo "$runs"
+}
+
+case "${1:-}" in
+  duo)
+    shift
+    fg=0
+    if [ "${1:-}" = "--fg" ]; then fg=1; shift; fi
+    [ $# -ge 1 ] || { echo 'usage: ecx duo "<goal>" [--best] [--hours H]'; exit 1; }
+    work="$(pick_workdir)"
+    cd "$work"
+    if [ $fg = 1 ]; then exec python3 "$ECX/duo/duo.py" "$@"; fi
+    logs="$HOME/.ecx-duo/runs"; mkdir -p "$logs"
+    log="$logs/$(date +%Y%m%d-%H%M%S).log"
+    nohup python3 "$ECX/duo/duo.py" "$@" >"$log" 2>&1 < /dev/null &
+    pid=$!
+    for _ in $(seq 1 60); do
+      if grep -q "Watch and talk:" "$log" 2>/dev/null; then
+        echo "duo started in $work (pid $pid)"
+        grep -E "^(duo is running|Watch and talk)" "$log"
+        echo "Log: $log"
+        echo "Stop: the Stop button on the page, or: kill $pid"
+        exit 0
+      fi
+      if ! kill -0 "$pid" 2>/dev/null; then echo "duo could not start:"; cat "$log"; exit 1; fi
+      sleep 0.5
+    done
+    echo "duo is still starting (pid $pid). Watch the log: $log"
+    ;;
+  *) sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
 esac
