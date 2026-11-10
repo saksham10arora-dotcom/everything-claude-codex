@@ -3,6 +3,7 @@
 and removes the skill links that point into this repo. Anything else is left alone.
 
     python3 scripts/uninstall.py --vault ~/vault
+    python3 scripts/uninstall.py --vault ~/vault --dry-run  (print the plan, change nothing)
     ./install.sh --uninstall --vault ~/vault
 """
 import argparse
@@ -11,6 +12,7 @@ import os
 ECX = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOME = os.path.expanduser("~")
 SKILL_DIRS = [os.path.join(HOME, ".claude", "skills"), os.path.join(HOME, ".agents", "skills")]
+DRY = False   # set by --dry-run: report every change, make none
 
 
 def say(sym, msg):
@@ -36,6 +38,9 @@ def find(roots, suffix):
 def restore(backup):
     """Put back the copy install.py saved before it first changed this file."""
     path = backup[:-len(".ecx-bak")]
+    if DRY:
+        say("<", f"would restore {path.replace(HOME, '~')}")
+        return
     os.replace(backup, path)
     say("<", f"restored {path.replace(HOME, '~')}")
 
@@ -43,6 +48,10 @@ def restore(backup):
 def remove_created(marker):
     """install.py made this file from nothing (marker *.ecx-new), so remove it."""
     path = marker[:-len(".ecx-new")]
+    if DRY:
+        if os.path.exists(path):
+            say("-", f"would remove {path.replace(HOME, '~')} (created by ECX)")
+        return
     if os.path.exists(path):
         os.remove(path)
         say("-", f"removed {path.replace(HOME, '~')} (created by ECX)")
@@ -53,7 +62,7 @@ def points_into_ecx(link):
     if not os.path.islink(link):
         return False
     raw = os.readlink(link)
-    if raw.startswith("\\\\?\\"):   # Windows reports links with a \\?\ prefix
+    if raw.startswith("\\\\?\\"):   # Windows reports links with a \\?\\ prefix
         raw = raw[4:]
     target = os.path.normcase(os.path.abspath(raw))
     skills = os.path.normcase(os.path.abspath(os.path.join(ECX, "skills")))
@@ -70,10 +79,16 @@ def remove_link(link):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--vault", default=os.path.join(HOME, "vault"))
+    ap.add_argument("--dry-run", action="store_true",
+                    help="print every file it would restore or remove, and change nothing")
     a = ap.parse_args()
+    global DRY
+    DRY = a.dry_run
     vault = os.path.realpath(os.path.expanduser(a.vault))
 
     print(f"\nECX: uninstalling\n  vault: {vault}\n")
+    if DRY:
+        print("  DRY RUN: nothing below is changed on disk.\n")
 
     # 1. Settings files install.py changed: restore the backups, remove the ones it created
     print("Settings")
@@ -92,14 +107,19 @@ def main():
     for target in SKILL_DIRS:
         if not os.path.isdir(target):
             continue
-        removed = 0
-        for name in sorted(os.listdir(target)):
-            link = os.path.join(target, name)
-            if points_into_ecx(link):
+        ecx_links = [os.path.join(target, name) for name in sorted(os.listdir(target))
+                     if points_into_ecx(os.path.join(target, name))]
+        if DRY:
+            for link in ecx_links:
+                say("-", f"would remove link {link.replace(HOME, '~')}")
+        else:
+            for link in ecx_links:
                 remove_link(link)
-                removed += 1
-        say("-", f"{removed} skill links removed from {target.replace(HOME, '~')}")
+        say("-", f"{len(ecx_links)} skill links {'would be ' if DRY else ''}removed from {target.replace(HOME, '~')}")
 
+    if DRY:
+        print("\nDry run finished. Nothing was changed. Re-run without --dry-run to apply.\n")
+        return
     print("\nDone. Your own files and skills were not touched.\n")
 
 
