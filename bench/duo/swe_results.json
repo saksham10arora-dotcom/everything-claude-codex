@@ -1,0 +1,192 @@
+{
+ "runs": [
+  {
+   "instance_id": "django__django-13128",
+   "config": "claude",
+   "minutes": 0.5,
+   "patch_lines": 70,
+   "claude_cost_usd": 0.170312,
+   "turns": 4
+  },
+  {
+   "instance_id": "django__django-13128",
+   "config": "codex",
+   "minutes": 1.0,
+   "patch_lines": 34,
+   "codex_tokens": 286843
+  },
+  {
+   "instance_id": "django__django-13128",
+   "config": "duo",
+   "minutes": 6.0,
+   "patch_lines": 43,
+   "status": "done",
+   "messages": 48,
+   "cards": 10,
+   "objections": 0,
+   "verified": 15,
+   "claude_5h_pct_used": 2,
+   "codex_5h_pct_used": 4
+  },
+  {
+   "instance_id": "django__django-13212",
+   "config": "claude",
+   "minutes": 0.8,
+   "patch_lines": 153,
+   "claude_cost_usd": 0.22444730000000002,
+   "turns": 15
+  },
+  {
+   "instance_id": "django__django-13212",
+   "config": "codex",
+   "minutes": 3.0,
+   "patch_lines": 185,
+   "codex_tokens": 263590
+  },
+  {
+   "instance_id": "django__django-13212",
+   "config": "duo",
+   "minutes": 6.0,
+   "patch_lines": 161,
+   "status": "done",
+   "messages": 39,
+   "cards": 8,
+   "objections": 0,
+   "verified": 8,
+   "claude_5h_pct_used": 2,
+   "codex_5h_pct_used": 5
+  },
+  {
+   "instance_id": "django__django-13449",
+   "config": "claude",
+   "minutes": 0.5,
+   "patch_lines": 22,
+   "claude_cost_usd": 0.1763844,
+   "turns": 6
+  },
+  {
+   "instance_id": "django__django-13449",
+   "config": "codex",
+   "minutes": 0.6,
+   "patch_lines": 30,
+   "codex_tokens": 243989
+  },
+  {
+   "instance_id": "django__django-13449",
+   "config": "duo",
+   "minutes": 5.6,
+   "patch_lines": 38,
+   "status": "done",
+   "messages": 38,
+   "cards": 6,
+   "objections": 2,
+   "verified": 11,
+   "claude_5h_pct_used": 2,
+   "codex_5h_pct_used": 4
+  },
+  {
+   "instance_id": "sympy__sympy-13852",
+   "config": "claude",
+   "minutes": 0.5,
+   "patch_lines": 35,
+   "claude_cost_usd": 0.1674848,
+   "turns": 5
+  },
+  {
+   "instance_id": "sympy__sympy-13852",
+   "config": "codex",
+   "minutes": 0.8,
+   "patch_lines": 35,
+   "codex_tokens": 308227
+  },
+  {
+   "instance_id": "sympy__sympy-13852",
+   "config": "duo",
+   "minutes": 3.3,
+   "patch_lines": 35,
+   "status": "done",
+   "messages": 31,
+   "cards": 7,
+   "objections": 0,
+   "verified": 6,
+   "claude_5h_pct_used": 1,
+   "codex_5h_pct_used": 3
+  },
+  {
+   "instance_id": "sympy__sympy-14248",
+   "config": "claude",
+   "minutes": 1.1,
+   "patch_lines": 110,
+   "claude_cost_usd": 0.2564321,
+   "turns": 9
+  },
+  {
+   "instance_id": "sympy__sympy-14248",
+   "config": "codex",
+   "minutes": 3.5,
+   "patch_lines": 83,
+   "codex_tokens": 1278099
+  },
+  {
+   "instance_id": "sympy__sympy-14248",
+   "config": "duo",
+   "minutes": 5.3,
+   "patch_lines": 111,
+   "status": "done",
+   "messages": 27,
+   "cards": 19,
+   "objections": 1,
+   "verified": 4,
+   "claude_5h_pct_used": 2,
+   "codex_5h_pct_used": -45
+  },
+  {
+   "instance_id": "pytest-dev__pytest-10356",
+   "config": "claude",
+   "minutes": 0.5,
+   "patch_lines": 47,
+   "claude_cost_usd": 0.17670239999999998,
+   "turns": 7
+  },
+  {
+   "instance_id": "pytest-dev__pytest-10356",
+   "config": "codex",
+   "minutes": 0.9,
+   "patch_lines": 42,
+   "codex_tokens": 240430
+  },
+  {
+   "instance_id": "pytest-dev__pytest-10356",
+   "config": "duo",
+   "minutes": 6.7,
+   "patch_lines": 57,
+   "status": "done",
+   "messages": 38,
+   "cards": 8,
+   "objections": 0,
+   "verified": 8,
+   "claude_5h_pct_used": 2,
+   "codex_5h_pct_used": 4
+  }
+ ],
+ "resolved": {
+  "django__django-13128|claude": true,
+  "django__django-13212|claude": false,
+  "django__django-13449|codex": true,
+  "sympy__sympy-13852|codex": false,
+  "django__django-13449|claude": true,
+  "sympy__sympy-13852|claude": false,
+  "django__django-13449|duo": true,
+  "sympy__sympy-13852|duo": false,
+  "sympy__sympy-14248|codex": true,
+  "pytest-dev__pytest-10356|codex": false,
+  "pytest-dev__pytest-10356|claude": false,
+  "sympy__sympy-14248|claude": false,
+  "django__django-13128|codex": false,
+  "django__django-13212|codex": false,
+  "sympy__sympy-14248|duo": true,
+  "pytest-dev__pytest-10356|duo": false,
+  "django__django-13128|duo": true,
+  "django__django-13212|duo": false
+ }
+}

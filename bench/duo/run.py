@@ -28,6 +28,7 @@ FILES = {"prices": "prices.py", "durations": "durations.py", "lru": "lru.py",
 SUITES = {"easy": ("tasks", ["prices", "durations", "lru"]), "hard": ("tasks_hard", ["cron", "semver", "dst"])}
 TASKS_DIR = "tasks"
 TIMEOUT = 20 * 60
+DUO_HOURS = "0.33"
 
 
 def fresh_repo(task):
@@ -79,7 +80,7 @@ def run_codex(d, goal):
 def run_duo(d, goal):
     env = {**os.environ, "ECX_DUO_AUTOAPPROVE": "1", "ECX_DUO_CATCHUP": "0", "ECX_DUO_CONTEXT": "", "ECX_VAULT": "",
            "ECX_USER": "the user"}
-    r = subprocess.run([sys.executable, os.path.join(ECX, "duo", "duo.py"), goal, "--no-open", "--hours", "0.33"],
+    r = subprocess.run([sys.executable, os.path.join(ECX, "duo", "duo.py"), goal, "--no-open", "--hours", DUO_HOURS],
                        cwd=d, capture_output=True, text=True, timeout=TIMEOUT + 120, env=env, stdin=subprocess.DEVNULL)
     runs = sorted(os.listdir(os.path.join(d, ".duo"))) if os.path.isdir(os.path.join(d, ".duo")) else []
     out = {"status": (re.search(r"duo (\w+)\.", r.stdout) or [None, "?"])[1]}
