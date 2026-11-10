@@ -73,12 +73,16 @@ READ_VERBS = re.compile(r"^(get|list|search|read|fetch|query|find|describe|statu
 CLAUDE_SAFE = {"Task", "Agent", "TodoWrite", "TodoRead", "ToolSearch", "Skill", "LSP", "EnterPlanMode", "ExitPlanMode",
                "BashOutput", "KillShell", "KillBash", "web"}
 WRAPPER = re.compile(r"^\s*(/bin/|/usr/bin/)?(ba|z)?sh\s+-l?c\s+(?P<q>['\"])(?P<body>.*)(?P=q)\s*$", re.S)
+BARE_WRAPPER = re.compile(r"^\s*(/bin/|/usr/bin/)?(ba|z)?sh\s+-l?c\s+(?P<body>[^'\"\s][^\s]*)\s*$")
 
 
 def unwrap(cmd):
     """Codex runs everything as `/bin/zsh -lc "<command>"`; judge the inner command."""
     m = WRAPPER.match(cmd or "")
-    return m.group("body").replace('\\"', '"') if m else (cmd or "")
+    if m:
+        return m.group("body").replace('\\"', '"')
+    m = BARE_WRAPPER.match(cmd or "")
+    return m.group("body") if m else (cmd or "")
 
 
 def _abs(path, ctx):
@@ -152,6 +156,8 @@ def _risky_target(t, ctx):
 
 def _structure(cmd, ctx):
     """Card reasons that need the command's shape, not just a pattern."""
+    words_src = cmd
+    cmd = re.sub(r"'[^']*'|\"(?:\\.|[^\"\\])*\"", '""', cmd)  # quoted text is data: a ">" in a message is not a redirect
     for m in re.finditer(r"(?:^|[;&|(]\s*)cd(?:\s+([^\s;&|)]+))?", cmd):
         t = m.group(1)
         if not t or any(ch in t for ch in "$~`") or not _inside(_abs(t, ctx), ctx.workdir):
@@ -169,7 +175,7 @@ def _structure(cmd, ctx):
         p = _abs(m.group(2), ctx)
         if not _inside(p, ctx.workdir) or ("-a" not in m.group(1) and _existed(p, ctx)):
             return f"writes to {m.group(2)} with tee"
-    words = _words(cmd)
+    words = _words(words_src)
     if words is None:
         return "has quoting duo cannot read"
     for name, args in _args_of(words, {"rm", "mv"}):

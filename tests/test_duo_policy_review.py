@@ -98,3 +98,12 @@ class I6Protected(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RetestFixes(unittest.TestCase):
+    def test_quoted_angle_bracket_is_not_a_redirect(self):
+        cmd = 'git add shop.py && git commit -qm "fix total Co-Authored-By: X <noreply@example.com>"'
+        self.assertEqual(bash(cmd), "allow")
+
+    def test_unquoted_shell_wrapper_unwrapped(self):
+        self.assertEqual(classify(Request("codex", "bash", {"command": "/bin/zsh -lc pwd"}), ctx(phase="plan"))[0], "allow")
