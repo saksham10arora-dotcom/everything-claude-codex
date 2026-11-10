@@ -11,6 +11,7 @@ import sys
 
 BLOCK = [
     (r"\brm\s+-[a-zA-Z]*[rf][a-zA-Z]*\s+(-\S+\s+)*(/|~|\$HOME|/\*|~/\*)(\s|$)", "deletes your whole disk or home folder"),
+    (r"\bfind\s+(-\S+\s+)*(/|~|~/|\$HOME|\$HOME/|/\*|~/\*)(\s+.*)?\s+['\"]?-delete\b", "deletes your whole disk or home folder"),
     (r"\bmkfs(\.\w+)?\b", "formats a disk"),
     (r"\bdd\b.*\bof=/dev/(disk|sd|nvme)", "overwrites a raw disk"),
     (r":\(\)\s*\{\s*:\|:&\s*\};:", "is a fork bomb"),
