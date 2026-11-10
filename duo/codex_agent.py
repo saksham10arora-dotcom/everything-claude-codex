@@ -122,13 +122,13 @@ class CodexAgent(Agent):
         self._queue = []
         self._closing = False
         self._reader = None
-        self._extra_mcp = []
 
     def _cmd(self, home):
         exe = shlex.split(os.environ.get("ECX_DUO_CODEX_BIN", "codex"))
-        cmd = exe + ["app-server", "-c", "features.codex_hooks=false",
+        # plugins off: their MCP servers cannot take a per-server approval setting, so their calls could skip cards
+        cmd = exe + ["app-server", "-c", "features.codex_hooks=false", "-c", "features.plugins=false",
                      "-c", 'apps._default.default_tools_approval_mode="prompt"']
-        for s in sorted(set(mcp_servers(os.path.join(home, "config.toml"))) | set(self._extra_mcp)):
+        for s in self._known_mcp(home):
             cmd += ["-c", f'mcp_servers.{s}.default_tools_approval_mode="prompt"']
         return cmd
 
@@ -156,6 +156,13 @@ class CodexAgent(Agent):
         await self._call("initialize", {"clientInfo": {"name": "ecx-duo", "version": "1"}})
         await self._write({"method": "initialized"})
 
+    BUILTIN_MCP = {"codex_apps"}  # ChatGPT app connectors; gated by apps._default above
+
+    def _known_mcp(self, home):
+        """MCP servers from the user's and the project's Codex config: each gets approval prompts forced on."""
+        return sorted(set(mcp_servers(os.path.join(home, "config.toml")))
+                      | set(mcp_servers(os.path.join(self.workdir, ".codex", "config.toml"))))
+
     async def _loaded_mcp(self):
         try:
             res = await self._call("mcpServerStatus/list", {"detail": "toolsAndAuthOnly"})
@@ -166,14 +173,11 @@ class CodexAgent(Agent):
     async def start(self, brief, first_message):
         home = codex_home()
         await self._launch(home)
-        known = set(mcp_servers(os.path.join(home, "config.toml")))
-        extra = [n for n in await self._loaded_mcp() if n not in known]
-        if extra:  # servers from somewhere duo did not parse (a project .codex/config.toml): relaunch with prompts on
-            self._extra_mcp = extra
-            self._closing = True
-            await self.close()
-            self._closing = False
-            await self._launch(home)
+        known = set(self._known_mcp(home)) | self.BUILTIN_MCP
+        unknown = [n for n in await self._loaded_mcp() if n not in known]
+        if unknown:  # never run a tool server whose calls would skip the approval cards
+            raise RuntimeError(f"Codex loaded MCP servers duo cannot gate: {', '.join(unknown)}. Define them as "
+                               "[mcp_servers.<name>] in ~/.codex/config.toml or the project's .codex/config.toml.")
         params = {"cwd": self.workdir, "ephemeral": True, "approvalPolicy": "untrusted", "sandbox": "read-only",
                   "developerInstructions": brief}
         if self.model:

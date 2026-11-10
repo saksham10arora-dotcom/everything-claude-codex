@@ -132,6 +132,7 @@ class Live(unittest.TestCase):
         self.assertEqual(ts["developerInstructions"], "BRIEF")
         self.assertEqual([f for f in sent if f.get("id") == 100][0]["result"], {"decision": "decline"})
         self.assertIn("features.codex_hooks=false", sent[0]["argv"])
+        self.assertIn("features.plugins=false", sent[0]["argv"])  # plugin MCP servers cannot be gated
         self.assertEqual(sent[0]["codex_home"], env["ECX_DUO_CODEX_HOME"])
 
 

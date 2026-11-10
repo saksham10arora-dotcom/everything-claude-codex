@@ -46,26 +46,39 @@ class Live(unittest.TestCase):
         with mock.patch.dict(os.environ, e):
             asyncio.run(go())
 
-    def test_unlisted_mcp_servers_get_prompt_mode(self):
-        e = env(FAKE_MCP="from_project_config")
-
+    def _run(self, e, work):
         async def go():
-            a = CodexAgent(os.path.realpath(tempfile.mkdtemp()), None, "medium")
+            a = CodexAgent(work, None, "medium")
             ended = asyncio.Event()
             a.on_turn_end = ended.set
 
             async def approve(ap):
                 return "deny", ""
             a.on_approval = approve
-            await a.start("BRIEF", "go")
-            await asyncio.wait_for(ended.wait(), 10)
-            await a.close()
+            try:
+                await a.start("BRIEF", "go")
+                await asyncio.wait_for(ended.wait(), 10)
+            finally:
+                await a.close()
         with mock.patch.dict(os.environ, e):
             asyncio.run(go())
-        starts = [json.loads(l)["argv"] for l in open(e["FAKE_OUT"]) if '"argv"' in l]
-        self.assertTrue(any('mcp_servers.from_project_config.default_tools_approval_mode="prompt"' in argv
-                            for argv in starts), starts)
+        return [json.loads(l)["argv"] for l in open(e["FAKE_OUT"]) if '"argv"' in l]
 
+    def test_project_config_servers_get_prompt_mode(self):
+        work = os.path.realpath(tempfile.mkdtemp())
+        os.makedirs(os.path.join(work, ".codex"))
+        open(os.path.join(work, ".codex", "config.toml"), "w").write("[mcp_servers.from_project_config]\ncommand='x'\n")
+        starts = self._run(env(FAKE_MCP="from_project_config"), work)
+        self.assertEqual(len(starts), 1)
+        self.assertIn('mcp_servers.from_project_config.default_tools_approval_mode="prompt"', starts[0])
+
+    def test_builtin_codex_apps_is_left_alone(self):
+        starts = self._run(env(FAKE_MCP="codex_apps"), os.path.realpath(tempfile.mkdtemp()))
+        self.assertFalse(any("mcp_servers.codex_apps" in a for argv in starts for a in argv))
+
+    def test_unknown_loaded_server_refuses_to_start(self):
+        with self.assertRaises(RuntimeError):
+            self._run(env(FAKE_MCP="mystery"), os.path.realpath(tempfile.mkdtemp()))
 
 if __name__ == "__main__":
     unittest.main()
