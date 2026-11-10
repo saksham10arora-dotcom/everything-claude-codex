@@ -70,4 +70,5 @@ def make(limits=None, existed=(), council=False):
     o = Orchestrator(work, run_dir, agents, log, ctx, "Saksham", limits or Limits(idle_delay=0.02),
                      brief_fn=lambda me, other, goal, user, rd: f"BRIEF {me}", report_fn=report, council=council)
     o.reports = reports
+    o.ping_fn = lambda title, text: None  # never pop real notifications from tests
     return o, agents, log, work, run_dir
