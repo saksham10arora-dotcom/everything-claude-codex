@@ -1,18 +1,24 @@
 """Runs one duo session: both agents, the message flow between them, the user's voice, cards and phases."""
 import asyncio
+import json
 import os
 import re
 import time
 from dataclasses import dataclass
 
 from duo import context, notify
-from duo.policy import classify
+from duo.policy import _read_only, classify
 
 NAMES = {"claude": "Claude", "codex": "Codex"}
 OTHER = {"claude": "codex", "codex": "claude"}
 MENTION = re.compile(r"^\s*((?:@(?:claude|codex)\b[\s,]*)+)(.*)$", re.I | re.S)
 READY = re.compile(r"\[\[READY:\s*(draft|plan|done)\s*\]\]", re.I)
 QUIET = re.compile(r"\[\[QUIET\]\]", re.I)
+OBJECTION = re.compile(r"\[\[OBJECTION:\s*(.+?)\]\]", re.I | re.S)
+RESOLVED = re.compile(r"\[\[RESOLVED:\s*(.+?)\]\]", re.I | re.S)
+VERIFIED = re.compile(r"\[\[VERIFIED:\s*(.+?)\]\]", re.I | re.S)
+CONCEDE = re.compile(r"\b(you'?re right|you are right|fair point|good point|i agree|agreed|i was wrong|i stand corrected)\b", re.I)
+EDIT_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit"}
 
 
 @dataclass
@@ -51,6 +57,10 @@ class Orchestrator:
         self.talk_streak = 0
         self.interrupt_timeout = 5.0
         self.power = power
+        self.open_objections = {}  # agent -> {"text", "seq", "msgs", "escalated", "flagged"}
+        self.last_evidence_seq = 0  # last time anyone ran, tested or changed something
+        self.last_change_seq = {}  # agent -> seq of its latest change in the build phase
+        self.verified_seq = {}  # agent -> seq of its latest [[VERIFIED: ...]]
         self._working = {}
         for n, a in agents.items():
             self._wire(n, a)
@@ -123,14 +133,19 @@ class Orchestrator:
             self._usage(n, data)
             return
         if kind != "message":
-            self.log.add(n, kind, **data)
+            ev = self.log.add(n, kind, **data)
+            if kind in ("tool", "tool_result", "file_change"):
+                self.last_evidence_seq = ev["seq"]
+            if self.phase == "build" and self._is_change(kind, data):
+                self.last_change_seq[n] = ev["seq"]
         if kind == "message":
             text = QUIET.sub("", data.get("text", "")).strip()
             if not text:  # "nothing to add": keep it out of the other agent's turn
                 self.log.add(n, "signal", quiet=True)
                 return
             data = {**data, "text": text}
-            self.log.add(n, kind, **data)
+            ev = self.log.add(n, kind, **data)
+            self._debate(n, text, ev["seq"])
             tags = READY.findall(text)
             self.ready[n] = tags[-1].lower() if tags else None
             if tags:
@@ -167,6 +182,62 @@ class Orchestrator:
         if self._working.get(n) != working:
             self._working[n] = working
             self.log.add("duo", "turn", who=n, state="working" if working else "idle")
+
+    def _is_change(self, kind, data):
+        if kind == "file_change":
+            return True
+        if kind != "tool":
+            return False
+        name = data.get("name")
+        if name in EDIT_TOOLS:
+            return True
+        if name in ("Bash", "shell"):
+            cmd = data.get("detail") or ""
+            try:
+                cmd = json.loads(cmd).get("command", cmd)
+            except (ValueError, AttributeError):
+                pass
+            return not _read_only(cmd, self.ctx)
+        return False
+
+    def _flag(self, flag, text):
+        self.log.add("duo", "status", status=self.status, flag=flag, text=text)
+
+    def _debate(self, n, text, seq):
+        """Objections must be settled by evidence; the other agent must verify changes before done."""
+        resolved = RESOLVED.findall(text)
+        for t in OBJECTION.findall(text):
+            t = " ".join(t.split())
+            self.open_objections[n] = {"text": t, "seq": seq, "msgs": 0, "escalated": False, "flagged": False}
+            self.log.add(n, "signal", objection=t)
+        obj = self.open_objections.get(n)
+        if obj and seq > obj["seq"]:
+            no_evidence = self.last_evidence_seq <= obj["seq"]
+            if resolved:
+                self.open_objections.pop(n)
+                self.log.add(n, "signal", resolved=" ".join(resolved[-1].split()))
+            if (resolved or CONCEDE.search(text)) and no_evidence and not obj["flagged"]:
+                obj["flagged"] = True
+                self._flag("conceded-without-evidence",
+                           f"{NAMES[n]} dropped its objection ({obj['text']}) with no new evidence.")
+                self._send(n, f"[duo] {NAMES[n]}, you dropped your objection ({obj['text']}) with no new evidence: "
+                              "nothing was run, tested or checked since you raised it. If something proved it, say what. "
+                              "If not, keep your position.")
+        for t in VERIFIED.findall(text):
+            self.verified_seq[n] = seq
+            self.log.add(n, "signal", verified=" ".join(t.split()))
+        for who, o in list(self.open_objections.items()):
+            if seq <= o["seq"]:
+                continue
+            o["msgs"] += 1
+            if o["msgs"] >= 6 and self.last_evidence_seq <= o["seq"] and not o["escalated"]:
+                o["escalated"] = True
+                self._broadcast(f"[duo] The disagreement ({o['text']}) isn't moving and no new evidence has come in. "
+                                "Each of you: one message with your strongest evidence (run it, test it, cite it), then "
+                                f"stop arguing about it. If it's still open, {self.user} decides.")
+                self._flag("disagreement", f"They disagree: {o['text']}. Your call: tell both, or @mention the one "
+                                           "you side with.")
+                self.ping_fn("duo needs you", f"They disagree: {o['text']}")
 
     def _turn_end(self, n):
         self._set_working(n, False)
@@ -312,6 +383,22 @@ class Orchestrator:
                 return
             asyncio.ensure_future(self._plan_card(open(path).read()))
         elif which == "done" and self.phase == "build":
+            if self.open_objections:
+                who, o = next(iter(self.open_objections.items()))
+                self._reset_ready()
+                self._broadcast(f"[duo] Not done: there is an open objection from {NAMES[who]} ({o['text']}). Settle it "
+                                f"with evidence and [[RESOLVED: what | evidence]], or leave it for {self.user} in the "
+                                "summary and resolve it as handed over.")
+                return
+            need = [(a, b) for a in self.agents for b in self.agents
+                    if a != b and self.last_change_seq.get(b, 0) > self.verified_seq.get(a, 0)]
+            if need:
+                self._reset_ready()
+                for a, b in need:
+                    self._send(a, f"[duo] Not done yet: verify {NAMES[b]}'s latest changes yourself first (run the "
+                                  "tests, open the sources, read the diff), then post "
+                                  "[[VERIFIED: what you checked | how]] and say [[READY: done]] again.")
+                return
             path = os.path.join(self.run_dir, "summary.md")
             if not os.path.exists(path):
                 self._reset_ready()

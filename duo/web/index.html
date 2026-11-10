@@ -393,7 +393,7 @@ function handle(e) {
   else if (k === "turn") { working[e.who] = e.state === "working"; drawTyping(); }
   else if (k === "status") {
     if (e.goal) $("goal").textContent = e.goal;
-    if (e.flag === "circles") { add(el("div", "sys flag", esc(e.text)), keep); return; }
+    if (e.flag) { add(el("div", "sys flag", esc(e.text)), keep); return; }
     const powerChange = e.power && e.status == null && !e.goal;
     if (e.power) power = e.power;
     if (e.status) status = e.status;

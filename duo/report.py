@@ -56,6 +56,15 @@ def audit(events, workdir):
             flags.append(f"{_t(e['ts'])} error: {_cell(e.get('text', ''))}")
     out = ["## Look at these first", ""]
     out += [f"- {f}" for f in flags] or ["None."]
+    debate = []
+    for e in events:
+        if e["kind"] == "signal":
+            for key, label in (("objection", "objected"), ("resolved", "resolved"), ("verified", "verified")):
+                if e.get(key):
+                    debate.append(f"- {_t(e['ts'])} {e['agent']} {label}: {e[key]}")
+        elif e["kind"] == "status" and e.get("flag") in ("conceded-without-evidence", "disagreement"):
+            debate.append(f"- {_t(e['ts'])} duo flagged: {e.get('text', '')}")
+    out += ["", "## Verification and disagreements", ""] + (debate or ["None recorded."])
     out += ["", "## Every action", "", "| time | agent | what | detail | result |", "|---|---|---|---|---|"]
     out += [f"| {_t(ts)} | {_cell(w)} | {_cell(n)} | {_cell(d)} | {_cell(r)} |" for ts, w, n, d, r in rows]
     out += ["", "## Approvals", ""]
