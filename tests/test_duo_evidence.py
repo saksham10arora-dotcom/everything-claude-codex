@@ -115,3 +115,25 @@ class Verification(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Bench(unittest.TestCase):
+    def test_autoapprove_env_approves_cards_but_not_blocks(self):
+        from unittest import mock
+        from duo.policy import Request
+
+        async def go():
+            o, a, log, rd, task = await building()
+            ok = await a["codex"].ask(Request("codex", "bash", {"command": "git push"}))
+            bad = await a["codex"].ask(Request("codex", "bash", {"command": "rm -rf ~"}))
+            self.assertEqual((ok[0], bad[0]), ("allow", "deny"))
+            self.assertEqual([e["agent"] for e in log.all() if e["kind"] == "card_resolved"], ["duo"])
+            task.cancel()
+        with mock.patch.dict(os.environ, {"ECX_DUO_AUTOAPPROVE": "1"}):
+            asyncio.run(go())
+
+    def test_catchup_can_be_switched_off(self):
+        from unittest import mock
+        from duo import context
+        with mock.patch.dict(os.environ, {"ECX_DUO_CATCHUP": "0", "ECX_DUO_CONTEXT": ""}):
+            self.assertNotIn("recent normal Claude", context.brief("Claude", "Codex", "g", "u", "/r"))

@@ -117,7 +117,7 @@ Rules:
                 parts.append(f"### {p}\n{open(p).read()[:20000]}")
             except OSError:
                 pass
-    recent = catchup()
+    recent = catchup() if os.environ.get("ECX_DUO_CATCHUP", "1") != "0" else ""
     if recent:
         parts.append(f"\n## {user}'s recent normal Claude and Codex sessions (read-only catch-up)\n{recent}")
     return "\n".join(parts)

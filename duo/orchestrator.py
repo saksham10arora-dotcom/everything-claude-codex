@@ -354,6 +354,8 @@ class Orchestrator:
         fut = self.loop.create_future()
         self.cards[cid] = {"future": fut, "card": card, **info}
         self.log.add("duo", "card_open", id=cid, card=card, **info)
+        if os.environ.get("ECX_DUO_AUTOAPPROVE") == "1":  # benchmarks in throwaway folders only; blocks still block
+            self._resolve(cid, "approve", "auto-approved (benchmark mode)", by="duo")
         return await fut
 
     def resolve_card(self, card_id, decision, note=""):
