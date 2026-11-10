@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>duo</title>
+<style>
+:root {
+  --bg: oklch(0.972 0.007 255);
+  --panel: oklch(0.993 0.003 255);
+  --sunk: oklch(0.945 0.009 255);
+  --line: oklch(0.9 0.012 255);
+  --ink: oklch(0.24 0.025 265);
+  --soft: oklch(0.4 0.02 265);
+  --mute: oklch(0.5 0.02 265);
+  --claude: oklch(0.71 0.15 42);
+  --claude-bg: oklch(0.955 0.03 45);
+  --claude-ink: oklch(0.45 0.13 40);
+  --codex: oklch(0.67 0.13 258);
+  --codex-bg: oklch(0.95 0.028 258);
+  --codex-ink: oklch(0.42 0.13 260);
+  --you: oklch(0.27 0.03 265);
+  --ask: oklch(0.91 0.13 95);
+  --ask-bg: oklch(0.975 0.05 98);
+  --ask-ink: oklch(0.4 0.09 80);
+  --ok: oklch(0.6 0.14 150);
+  --no: oklch(0.56 0.18 25);
+  --round: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--round); -webkit-font-smoothing: antialiased; }
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; border: 0; background: none; }
+:focus-visible { outline: 2px solid var(--codex); outline-offset: 2px; border-radius: 10px; }
+
+.face { width: 34px; height: 34px; flex: none; display: block; }
+.face .body { transform-origin: 50% 100%; }
+.face .eye { transform-box: fill-box; transform-origin: center; animation: blink 5.2s infinite; }
+.face.codex .eye { animation-delay: 2.1s; }
+.face.working .body { animation: bob 0.9s var(--ease) infinite alternate; }
+.face.sm { width: 22px; height: 22px; }
+@keyframes blink { 0%, 94%, 100% { transform: scaleY(1); } 97% { transform: scaleY(0.1); } }
+@keyframes bob { from { transform: translateY(0) scale(1, 1); } to { transform: translateY(-2px) scale(1.03, 0.97); } }
+
+.app { display: grid; grid-template-columns: minmax(0, 1fr) 320px; grid-template-rows: auto minmax(0, 1fr); height: 100dvh; }
+
+header { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; padding: 12px 20px; background: var(--panel);
+  border-bottom: 1px solid var(--line); min-width: 0; }
+.brand { display: flex; align-items: center; gap: 8px; flex: none; }
+.brand .pair { display: flex; }
+.brand .pair .face + .face { margin-left: -9px; }
+.brand b { font-size: 18px; font-weight: 800; letter-spacing: -0.02em; }
+.goal { flex: 1; min-width: 0; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar { display: flex; align-items: center; gap: 8px; flex: none; font-size: 13px; }
+.pill { border-radius: 99px; padding: 4px 11px; background: var(--sunk); color: var(--soft); font-weight: 600; white-space: nowrap; }
+.pill.live { background: oklch(0.94 0.05 150); color: oklch(0.4 0.1 150); }
+.pill.paused { background: var(--ask-bg); color: var(--ask-ink); }
+.pill.done { background: oklch(0.93 0.06 150); color: oklch(0.38 0.11 150); }
+.pill.stopped, .pill.crashed, .pill.failed { background: oklch(0.95 0.03 25); color: var(--no); }
+.clock { color: var(--mute); font-variant-numeric: tabular-nums; min-width: 38px; }
+.usage { display: flex; gap: 10px; color: var(--mute); }
+.usage > span { display: inline-flex; align-items: center; gap: 4px; }
+.usage b { color: var(--soft); font-weight: 700; font-variant-numeric: tabular-nums; }
+.usage b.hi { color: var(--ask-ink); } .usage b.max { color: var(--no); }
+.btn { border-radius: 99px; padding: 6px 13px; font-weight: 650; background: var(--sunk); color: var(--soft);
+  transition: background .15s var(--ease), transform .1s var(--ease); white-space: nowrap; }
+.btn:hover { background: var(--line); color: var(--ink); }
+.btn:active { transform: scale(0.96); }
+.btn:disabled { opacity: .4; cursor: default; transform: none; }
+.btn.stop { color: var(--no); }
+.btn.high { display: inline-flex; align-items: center; gap: 5px; }
+.btn.high svg { width: 13px; height: 13px; }
+.btn.high[aria-pressed="true"] { background: var(--you); color: oklch(0.97 0.01 265); }
+.btn.high[aria-pressed="true"] svg { color: var(--ask); }
+
+main { grid-column: 1; grid-row: 2; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; }
+.banner { display: none; margin: 12px 20px 0; padding: 10px 14px; border-radius: 14px; font-weight: 600; font-size: 14px; }
+.banner.show { display: block; }
+.banner.ask { background: var(--ask-bg); color: var(--ask-ink); }
+.banner.ok { background: oklch(0.94 0.05 150); color: oklch(0.38 0.11 150); }
+.banner.bad { background: oklch(0.95 0.03 25); color: var(--no); }
+#chat { grid-row: 2; overflow-y: auto; padding: 22px 20px 30px; }
+.banner { grid-row: 1; } form.say { grid-row: 3; }
+.feed, #typing { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+#typing { margin-top: 12px; }
+
+.empty { text-align: center; color: var(--mute); padding: 40px 0 10px; }
+.empty .pair { display: flex; justify-content: center; margin-bottom: 10px; }
+.empty .pair .face { width: 56px; height: 56px; }
+.empty .pair .face + .face { margin-left: -12px; }
+
+.msg { display: flex; gap: 10px; align-items: flex-end; animation: pop .22s var(--ease); max-width: 88%; }
+@keyframes pop { from { opacity: 0; transform: translateY(6px) scale(0.98); } }
+.msg .col { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.msg .name { font-size: 12px; font-weight: 700; padding-left: 12px; }
+.claude .name { color: var(--claude-ink); } .codex .name { color: var(--codex-ink); }
+.bubble { padding: 10px 14px; border-radius: 20px 20px 20px 6px; overflow-wrap: anywhere; }
+.claude .bubble { background: var(--claude-bg); }
+.codex .bubble { background: var(--codex-bg); }
+.msg.user { align-self: flex-end; flex-direction: row-reverse; }
+.msg.user .bubble { background: var(--you); color: oklch(0.97 0.01 265); border-radius: 20px 20px 6px 20px; }
+.msg.user .name { text-align: right; padding: 0 12px 0 0; color: var(--mute); }
+.bubble p { margin: 0 0 6px; } .bubble p:last-child { margin: 0; }
+.bubble ul { margin: 4px 0 6px; padding-left: 20px; }
+.bubble code, .plan code, #plan code { font: 12.5px/1.4 var(--mono); background: oklch(1 0 0 / 0.65); border-radius: 6px; padding: 1px 5px; }
+.msg.user .bubble code { background: oklch(1 0 0 / 0.14); }
+.bubble a { color: inherit; }
+.file { font-weight: 700; text-decoration: underline dotted; text-underline-offset: 3px; cursor: help; }
+.ready { display: inline-block; font-size: 11.5px; font-weight: 700; color: oklch(0.4 0.11 150); background: oklch(0.93 0.06 150);
+  border-radius: 99px; padding: 1px 8px; margin-left: 4px; }
+
+.typing .bubble { display: inline-flex; gap: 4px; padding: 13px 15px; }
+.typing .bubble i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .35; animation: dot 1.2s infinite; }
+.typing.claude .bubble { color: var(--claude-ink); } .typing.codex .bubble { color: var(--codex-ink); }
+.typing .bubble i:nth-child(2) { animation-delay: .15s; } .typing .bubble i:nth-child(3) { animation-delay: .3s; }
+@keyframes dot { 0%, 60%, 100% { opacity: .3; transform: none; } 30% { opacity: 1; transform: translateY(-2px); } }
+
+details.work { margin-left: 44px; font-size: 13px; color: var(--mute); }
+details.work summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; padding: 3px 11px 3px 9px;
+  border-radius: 99px; background: var(--sunk); font-weight: 600; }
+details.work summary::-webkit-details-marker { display: none; }
+details.work summary::before { content: ""; width: 5px; height: 5px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg); transition: transform .15s var(--ease); }
+details.work[open] summary::before { transform: rotate(45deg); }
+.steps { margin: 6px 0 0; padding: 8px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+  display: flex; flex-direction: column; gap: 4px; }
+.tool { font: 12px/1.5 var(--mono); color: var(--soft); white-space: pre-wrap; overflow-wrap: anywhere; }
+.tool .res { color: var(--mute); } .tool .bad { color: var(--no); }
+.tool.reason { font-family: var(--round); font-style: italic; color: var(--mute); }
+
+.takes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; animation: pop .25s var(--ease); }
+.takes-head { grid-column: 1 / -1; text-align: center; font-size: 13px; font-weight: 650; color: var(--mute); }
+.take { border-radius: 18px; padding: 10px 12px; min-width: 0; }
+.take.claude { background: var(--claude-bg); } .take.codex { background: var(--codex-bg); }
+.take summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 6px; font-weight: 750; }
+.take summary::-webkit-details-marker { display: none; }
+.take.claude summary { color: var(--claude-ink); } .take.codex summary { color: var(--codex-ink); }
+.take-body { font-size: 13.5px; margin-top: 6px; max-height: 320px; overflow: auto; overflow-wrap: anywhere; }
+.take-body p, .take-body h3 { margin: 0 0 6px; } .take-body h3 { font-size: 13.5px; } .take-body ul { margin: 0 0 6px; padding-left: 18px; }
+.sys { align-self: center; font-size: 13px; color: var(--mute); background: var(--sunk); border-radius: 99px; padding: 4px 12px; text-align: center; max-width: 90%; overflow-wrap: anywhere; }
+.sys.flag { background: var(--ask-bg); color: var(--ask-ink); }
+.sys.err { background: oklch(0.95 0.03 25); color: var(--no); }
+
+.card { margin-left: 44px; background: var(--ask-bg); border: 1.5px solid var(--ask); border-radius: 20px; padding: 14px 16px; animation: pop .25s var(--ease); }
+.card .head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-weight: 750; color: var(--ask-ink); }
+.card .head .face + .face { margin-left: -12px; }
+.card .what { font: 12.5px/1.5 var(--mono); background: var(--panel); border-radius: 12px; padding: 9px 11px; margin: 10px 0 6px;
+  white-space: pre-wrap; overflow-wrap: anywhere; max-height: 180px; overflow: auto; }
+.card .why { color: var(--soft); font-size: 14px; }
+.card .plan { background: var(--panel); border-radius: 14px; padding: 10px 14px; margin: 10px 0 6px; max-height: 360px; overflow: auto; }
+.card .plan ul { padding-left: 20px; }
+.card .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.card input { flex: 1; min-width: 150px; background: var(--panel); border: 1px solid var(--line); border-radius: 99px; padding: 7px 14px; }
+.card input::placeholder { color: var(--mute); }
+.card .yes { background: var(--you); color: oklch(0.97 0.01 265); }
+.card .yes:hover { background: oklch(0.34 0.03 265); color: oklch(0.97 0.01 265); }
+.card .nope { background: var(--panel); color: var(--no); box-shadow: inset 0 0 0 1.5px oklch(0.85 0.06 25); }
+.card.closed { background: var(--panel); border-color: var(--line); padding: 9px 14px; }
+.card.closed .head { color: var(--soft); font-weight: 650; font-size: 14px; }
+.verdict { border-radius: 99px; padding: 1px 9px; font-size: 12px; font-weight: 700; }
+.verdict.approve { background: oklch(0.93 0.06 150); color: oklch(0.38 0.11 150); }
+.verdict.deny { background: oklch(0.95 0.03 25); color: var(--no); }
+.card.closed .what { margin: 6px 0 0; max-height: 64px; }
+
+form.say { padding: 10px 20px 16px; }
+.say .box { max-width: 720px; margin: 0 auto; background: var(--panel); border: 1px solid var(--line); border-radius: 24px; padding: 6px 6px 6px 8px;
+  display: flex; align-items: flex-end; gap: 6px; box-shadow: 0 8px 26px -16px oklch(0.4 0.05 265 / 0.4); }
+.chip { display: inline-flex; align-items: center; gap: 4px; border-radius: 99px; padding: 4px 10px 4px 4px; margin-bottom: 3px; font-size: 13px; font-weight: 700; flex: none; }
+.chip.c { background: var(--claude-bg); color: var(--claude-ink); } .chip.x { background: var(--codex-bg); color: var(--codex-ink); }
+.chip:hover { filter: brightness(0.97); } .chip:active { transform: scale(0.96); }
+.say textarea { flex: 1; min-width: 0; resize: none; border: 0; outline: 0; background: transparent; min-height: 36px; max-height: 160px; padding: 7px 4px; }
+.say textarea::placeholder { color: var(--mute); }
+#send { width: 38px; height: 38px; border-radius: 50%; background: var(--you); color: white; display: grid; place-items: center; flex: none; }
+#send:active { transform: scale(0.94); }
+#send svg { width: 16px; height: 16px; }
+.hint { max-width: 720px; margin: 6px auto 0; font-size: 12px; color: var(--mute); text-align: center; }
+
+aside { grid-column: 2; grid-row: 2; border-left: 1px solid var(--line); background: var(--panel); overflow-y: auto; padding: 18px; min-height: 0; }
+aside h2 { font-size: 14px; margin: 0 0 12px; font-weight: 750; }
+#plan ul { list-style: none; padding: 0; margin: 0 0 12px; display: flex; flex-direction: column; gap: 6px; }
+#plan li { position: relative; padding: 6px 10px 6px 34px; border-radius: 12px; background: var(--sunk); color: var(--soft); font-size: 14px; }
+#plan li::before { content: ""; position: absolute; left: 10px; top: 9px; width: 14px; height: 14px; border-radius: 5px; box-shadow: inset 0 0 0 1.5px var(--mute); }
+#plan li.done { color: var(--mute); text-decoration: line-through; }
+#plan li.done::before { background: var(--ok); box-shadow: none; }
+#plan li.done::after { content: ""; position: absolute; left: 14.5px; top: 11px; width: 4px; height: 7px; border: solid white; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+#plan h3 { font-size: 14px; margin: 14px 0 6px; } #plan h3:first-child { margin-top: 0; }
+#plan p { color: var(--soft); margin: 0 0 8px; font-size: 14px; }
+.waiting { color: var(--mute); font-size: 14px; }
+
+@media (max-width: 900px) {
+  .app { grid-template-columns: 1fr; grid-template-rows: auto auto minmax(0, 1fr); }
+  header { flex-wrap: wrap; padding: 10px 14px; gap: 8px 10px; }
+  .goal { order: 9; flex-basis: 100%; }
+  .bar { flex-wrap: wrap; }
+  aside { grid-column: 1; grid-row: 2; border-left: 0; border-bottom: 1px solid var(--line); max-height: 26dvh; padding: 12px 14px; }
+  main { grid-column: 1; grid-row: 3; }
+  #chat { padding: 16px 12px 24px; } form.say { padding: 8px 10px 12px; }
+  .msg { max-width: 96%; } details.work, .card { margin-left: 0; }
+  .takes { grid-template-columns: 1fr; }
+  .chip span, .chip { font-size: 0; padding: 3px; gap: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .msg, .card { animation: none; } .face .eye, .face.working .body, .typing .bubble i { animation: none; }
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="f-claude" viewBox="0 0 40 40"><g class="body"><path d="M20 3c9 0 16 6.5 16 16.5S30 37 20 37 4 30 4 19.5 11 3 20 3z" fill="var(--claude)"/>
+    <ellipse class="eye" cx="15" cy="19" rx="2.3" ry="3.2" fill="oklch(0.25 0.04 40)"/><ellipse class="eye" cx="25" cy="19" rx="2.3" ry="3.2" fill="oklch(0.25 0.04 40)"/>
+    <path d="M16.5 26c2 1.6 5 1.6 7 0" stroke="oklch(0.25 0.04 40)" stroke-width="1.8" fill="none" stroke-linecap="round"/></g></symbol>
+  <symbol id="f-codex" viewBox="0 0 40 40"><g class="body"><rect x="4" y="4" width="32" height="32" rx="12" fill="var(--codex)"/>
+    <ellipse class="eye" cx="15" cy="19" rx="2.3" ry="3.2" fill="oklch(0.22 0.05 260)"/><ellipse class="eye" cx="25" cy="19" rx="2.3" ry="3.2" fill="oklch(0.22 0.05 260)"/>
+    <path d="M17 26h6" stroke="oklch(0.22 0.05 260)" stroke-width="1.8" stroke-linecap="round"/></g></symbol>
+</svg>
+<div class="app">
+  <header>
+    <div class="brand"><span class="pair" id="brandFaces"></span><b>duo</b></div>
+    <div class="goal" id="goal"></div>
+    <div class="bar">
+      <span class="pill" id="phase">starting</span>
+      <span class="clock" id="clock">0:00</span>
+      <span class="usage" id="usage" title="Usage limit used: 5-hour window / weekly. duo pauses at 90% of a 5-hour limit."></span>
+      <button class="btn high" id="high" type="button" aria-pressed="false" title="Switch both to their top models (uses more of your quota)">
+        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M9.2 1 3 9.1h4.2L6.6 15 13 6.6H8.7L9.2 1z"/></svg>High</button>
+      <button class="btn" id="pause" type="button">Pause</button>
+      <button class="btn stop" id="stop" type="button">Stop</button>
+    </div>
+  </header>
+  <aside>
+    <h2>Their plan</h2>
+    <div id="plan"><p class="waiting">They're reading the project and arguing out a plan. It shows up here.</p></div>
+  </aside>
+  <main>
+    <div class="banner" id="banner"></div>
+    <div id="chat">
+      <div class="feed" id="feed">
+        <div class="empty" id="empty"><div class="pair" id="emptyFaces"></div>Claude and Codex are waking up.</div>
+      </div>
+      <div id="typing" aria-live="polite"></div>
+    </div>
+    <form class="say" id="say">
+      <div class="box">
+        <button type="button" class="chip c" data-at="@claude " aria-label="Talk to Claude only"><span data-face="claude"></span><span>Claude</span></button>
+        <button type="button" class="chip x" data-at="@codex " aria-label="Talk to Codex only"><span data-face="codex"></span><span>Codex</span></button>
+        <textarea id="text" rows="1" placeholder="Message both of them" aria-label="Message"></textarea>
+        <button id="send" type="submit" aria-label="Send"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 2.5 13.5 8 12.4 9.1 8.8 5.5V14H7.2V5.5L3.6 9.1 2.5 8z"/></svg></button>
+      </div>
+      <div class="hint">Tap a face to talk to just one of them. Risky steps wait for you as yellow cards.</div>
+    </form>
+  </main>
+</div>
+<script>
+const T = new URLSearchParams(location.search).get("t") || "";
+const $ = (id) => document.getElementById(id);
+const feed = $("feed"), chat = $("chat");
+const NAME = { claude: "Claude", codex: "Codex", user: "You" };
+const ENDED = ["done", "stopped", "crashed", "failed"];
+let last = 0, lastTs = null, started = null, status = "running", phase = "plan", power = "normal", work = null, workAgent = null;
+const cards = {}, usage = {}, working = {};
+
+function face(who, cls = "") { return `<svg class="face ${who} ${cls}" aria-hidden="true"><use href="#f-${who}"/></svg>`; }
+$("brandFaces").innerHTML = face("claude", "sm") + face("codex", "sm");
+$("emptyFaces").innerHTML = face("claude") + face("codex");
+document.querySelectorAll("[data-face]").forEach((s) => s.outerHTML = face(s.dataset.face, "sm"));
+
+function esc(s) { return String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function inline(s) {
+  return esc(s).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/\[([^\]]+)\]\((\/[^)\s]+)\)/g, '<span class="file" title="$2">$1</span>')
+    .replace(/\[\[READY:\s*(plan|done)\s*\]\]/gi, (_, w) => `<span class="ready">ready: ${w.toLowerCase()}</span>`);
+}
+function md(s) {
+  const out = []; let list = null;
+  for (const raw of String(s || "").split("\n")) {
+    const line = raw.trimEnd();
+    const box = line.match(/^\s*[-*]\s+\[( |x|X)\]\s+(.*)$/), item = line.match(/^\s*[-*]\s+(.*)$/), num = line.match(/^\s*\d+[.)]\s+(.*)$/), h = line.match(/^(#{1,3})\s+(.*)$/);
+    if (box || item || num) {
+      if (!list) { list = []; out.push(list); }
+      list.push(box ? `<li class="${box[1].trim() ? "done" : ""}">${inline(box[2])}</li>` : `<li>${inline((item || num)[1])}</li>`);
+      continue;
+    }
+    list = null;
+    if (h) out.push(`<h3>${inline(h[2])}</h3>`); else if (line.trim()) out.push(`<p>${inline(line)}</p>`);
+  }
+  return out.map((x) => Array.isArray(x) ? `<ul>${x.join("")}</ul>` : x).join("");
+}
+function stick() { return chat.scrollHeight - chat.scrollTop - chat.clientHeight < 140; }
+function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
+function add(node, keep) { $("empty")?.remove(); feed.appendChild(node); if (keep) chat.scrollTop = chat.scrollHeight; }
+
+function endWork() { work = null; workAgent = null; }
+function workBox(agent, keep) {
+  if (work && workAgent === agent) return work;
+  work = el("details", "work"); workAgent = agent;
+  work.innerHTML = `<summary></summary><div class="steps"></div>`; work.dataset.n = 0; work.dataset.f = 0;
+  add(work, keep);
+  return work;
+}
+function bump(box, agent, file) {
+  if (file) box.dataset.f = +box.dataset.f + 1; else box.dataset.n = +box.dataset.n + 1;
+  const n = +box.dataset.n, f = +box.dataset.f, parts = [];
+  if (n) parts.push(`${n} ${n === 1 ? "step" : "steps"}`);
+  if (f) parts.push(`${f} ${f === 1 ? "file" : "files"} changed`);
+  box.querySelector("summary").textContent = `${NAME[agent]} did ${parts.join(", ")}`;
+}
+
+function card(e, keep) {
+  const c = el("div", "card");
+  const asker = e.by === "claude" || e.by === "codex" ? face(e.by, "sm") : face("claude", "sm") + face("codex", "sm");
+  if (e.card === "plan") {
+    c.innerHTML = `<div class="head">${asker}Approve their plan?</div><div class="plan">${md(e.plan)}</div><div class="why">Nothing gets built until you say yes.</div>`;
+  } else {
+    c.innerHTML = `<div class="head">${asker}${esc(NAME[e.by] || e.by)} wants to do this</div><div class="what">${esc(e.summary)}</div><div class="why">${esc(e.reason)}</div>`;
+  }
+  const row = el("div", "row");
+  row.innerHTML = `<input placeholder="${e.card === "plan" ? "Note for them (optional)" : "Why, or what to do instead (optional)"}" aria-label="Note"><button class="btn yes" type="button">Approve</button><button class="btn nope" type="button">${e.card === "plan" ? "Send back" : "Deny"}</button>`;
+  const note = row.querySelector("input");
+  row.querySelector(".yes").onclick = () => post("/card", { id: e.id, decision: "approve", note: note.value });
+  row.querySelector(".nope").onclick = () => post("/card", { id: e.id, decision: "deny", note: note.value });
+  c.appendChild(row);
+  c.dataset.title = e.card === "plan" ? "The plan" : (NAME[e.by] || e.by);
+  c.dataset.asker = asker;
+  cards[e.id] = c;
+  add(c, keep);
+}
+function closeCard(e) {
+  const c = cards[e.id]; if (!c) return;
+  const ok = e.decision === "approve", what = c.querySelector(".what");
+  c.className = "card closed";
+  c.innerHTML = `<div class="head">${c.dataset.asker}${esc(c.dataset.title)} <span class="verdict ${e.decision}">${ok ? "approved" : "denied"}</span>${e.note ? ` <span>"${esc(e.note)}"</span>` : ""}</div>` + (what ? what.outerHTML : "");
+}
+
+function drawTyping() {
+  const keep = stick();
+  $("typing").innerHTML = ENDED.includes(status) ? "" : ["claude", "codex"].filter((n) => working[n]).map((n) =>
+    `<div class="msg typing ${n}">${face(n, "working")}<div class="col"><div class="bubble"><i></i><i></i><i></i></div></div></div>`).join("");
+  if (keep) chat.scrollTop = chat.scrollHeight;
+}
+function banner(text, cls) { const b = $("banner"); b.className = "banner" + (text ? " show " + (cls || "") : ""); b.textContent = text || ""; }
+function setState() {
+  const p = $("phase"), live = status === "running";
+  p.className = "pill " + (live ? "live" : status);
+  p.textContent = live ? ({ council: "blind drafts", plan: "planning" }[phase] || "building") : status;
+  $("pause").textContent = status === "paused" ? "Resume" : "Pause";
+  $("pause").disabled = $("stop").disabled = $("high").disabled = ENDED.includes(status);
+  $("high").setAttribute("aria-pressed", String(power === "high"));
+  drawTyping();
+}
+function pct(v) { if (v == null) return "?"; return `<b class="${v >= 90 ? "max" : v >= 75 ? "hi" : ""}">${v}%</b>`; }
+function drawUsage() {
+  $("usage").innerHTML = ["claude", "codex"].filter((n) => usage[n]).map((n) => `<span>${face(n, "sm")}${pct(usage[n].five_hour)}/${pct(usage[n].seven_day)}</span>`).join("");
+}
+
+function handle(e) {
+  if (e.seq <= last) return;
+  last = e.seq;
+  const keep = stick();
+  if (!started) started = e.ts;
+  lastTs = e.ts;
+  const k = e.kind;
+  if (k === "message") {
+    endWork();
+    const who = e.agent;
+    const text = who === "user" ? String(e.text).replace(/^\s*((@(claude|codex)\b[\s,]*)+)/i, "") : e.text;
+    const to = who === "user" && e.to && e.to.length === 1 ? ` to ${NAME[e.to[0]]}` : "";
+    const m = el("div", "msg " + who);
+    m.innerHTML = (who === "user" ? "" : face(who)) + `<div class="col"><div class="name">${NAME[who]}${to}</div><div class="bubble">${md(text)}</div></div>`;
+    add(m, keep);
+  } else if (k === "tool" || k === "tool_result" || k === "file_change" || k === "reasoning") {
+    const box = workBox(e.agent, keep), steps = box.querySelector(".steps");
+    if (k === "tool") { steps.appendChild(el("div", "tool", `${esc(e.name === "shell" || e.name === "Bash" ? "$" : e.name)} ${esc(e.detail)}`)); bump(box, e.agent); }
+    else if (k === "tool_result") steps.appendChild(el("div", "tool", `<span class="res ${e.error ? "bad" : ""}">${esc(e.text)}</span>`));
+    else if (k === "file_change") { steps.appendChild(el("div", "tool", esc((e.paths || []).map((p, i) => `${(e.kinds || [])[i] || "edit"} ${p}`).join("\n")))); bump(box, e.agent, true); }
+    else { steps.appendChild(el("div", "tool reason", esc(e.text))); if (+box.dataset.n === 0 && +box.dataset.f === 0) box.querySelector("summary").textContent = `${NAME[e.agent]} is thinking`; }
+    if (keep) chat.scrollTop = chat.scrollHeight;
+  } else if (k === "card_open") { endWork(); card(e, true); }
+  else if (k === "card_resolved") closeCard(e);
+  else if (k === "blocked") { endWork(); add(el("div", "sys err", `Blocked for ${esc(NAME[e.by] || e.by || "")}: ${esc(e.reason)}`), keep); }
+  else if (k === "error") { endWork(); add(el("div", "sys err", esc(e.text)), keep); }
+  else if (k === "report") { endWork(); add(el("div", "sys", `Report saved: <code>${esc(e.path)}</code>`), keep); }
+  else if (k === "drafts") {
+    endWork();
+    const t = el("div", "takes");
+    t.innerHTML = `<div class="takes-head">Blind round: each wrote a plan without seeing the other's. Now they critique and merge.</div>` +
+      ["claude", "codex"].map((n) => `<details class="take ${n}" open><summary>${face(n, "sm")}${NAME[n]}'s take</summary><div class="take-body">${md(e[n])}</div></details>`).join("");
+    add(t, keep);
+  }
+  else if (k === "usage") { usage[e.agent] = e; drawUsage(); }
+  else if (k === "turn") { working[e.who] = e.state === "working"; drawTyping(); }
+  else if (k === "status") {
+    if (e.goal) $("goal").textContent = e.goal;
+    if (e.flag) { add(el("div", "sys flag", esc(e.text)), keep); return; }
+    const powerChange = e.power && e.status == null && !e.goal;
+    if (e.power) power = e.power;
+    if (e.status) status = e.status;
+    if (e.phase) phase = e.phase;
+    if (status === "paused") banner(`Paused: ${e.reason || "waiting for you"}`, "ask");
+    else if (status === "done") banner("They both say it's done. The report is at the bottom.", "ok");
+    else if (status === "stopped") banner("Stopped. A partial report is at the bottom.", "bad");
+    else if (status === "crashed") banner("An agent crashed, so the run ended. The report is at the bottom.", "bad");
+    else if (status === "failed") banner("duo couldn't start both agents. The reason is in the chat.", "bad");
+    else banner("");
+    if (ENDED.includes(status) && started) $("clock").textContent = fmtTime(lastTs - started);
+    if (powerChange) add(el("div", "sys", power === "high" ? "Switched to top models from the next step on." : "Back to the normal models."), keep);
+    if (e.phase === "build" && e.status === "running") add(el("div", "sys", "Plan approved. They're building."), keep);
+    setState();
+  }
+  if (k === "message" || k === "file_change" || k === "card_resolved") refreshPlan();
+}
+
+let planTimer = null;
+function refreshPlan() {
+  clearTimeout(planTimer);
+  planTimer = setTimeout(async () => {
+    try { const t = await (await fetch(`/plan?t=${encodeURIComponent(T)}`)).text(); if (t.trim()) $("plan").innerHTML = md(t); } catch {}
+  }, 400);
+}
+async function post(path, body) {
+  try {
+    const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json", "X-Duo-Token": T }, body: JSON.stringify(body) });
+    if (!r.ok) throw new Error(await r.text());
+  } catch (err) { add(el("div", "sys err", "Couldn't reach duo: " + esc(err.message)), true); }
+}
+function connect() {
+  const es = new EventSource(`/events?since=${last}&t=${encodeURIComponent(T)}`);
+  es.onmessage = (m) => handle(JSON.parse(m.data));
+  es.onerror = () => { es.close(); if (!ENDED.includes(status)) setTimeout(connect, 1500); };
+}
+
+$("say").onsubmit = (ev) => {
+  ev.preventDefault();
+  const t = $("text").value.trim(); if (!t) return;
+  post("/say", { text: t }); $("text").value = ""; grow();
+};
+$("text").addEventListener("keydown", (ev) => { if (ev.key === "Enter" && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); $("say").requestSubmit(); } });
+function grow() {
+  const t = $("text"); t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 160) + "px";
+  t.placeholder = /^\s*@(claude|codex)\b/i.test(t.value) ? "" : "Message both of them";
+}
+$("text").addEventListener("input", grow);
+document.querySelectorAll(".chip").forEach((b) => b.onclick = () => {
+  const t = $("text"); t.value = b.dataset.at + t.value.replace(/^\s*@(claude|codex)\s*/i, ""); t.focus(); grow();
+});
+$("high").onclick = () => post("/control", { action: power === "high" ? "normal" : "high" });
+$("pause").onclick = () => post("/control", { action: status === "paused" ? "resume" : "pause" });
+$("stop").onclick = () => { if (confirm("Stop both of them now? You'll still get a report.")) post("/control", { action: "stop" }); };
+function fmtTime(sec) {
+  const s = Math.max(0, Math.floor(sec)), h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60;
+  return `${h ? h + ":" + String(m).padStart(2, "0") : m}:${String(s % 60).padStart(2, "0")}`;
+}
+setInterval(() => { if (started && !ENDED.includes(status)) $("clock").textContent = fmtTime(Date.now() / 1000 - started); }, 1000);
+connect();
+refreshPlan();
+</script>
+</body>
+</html>

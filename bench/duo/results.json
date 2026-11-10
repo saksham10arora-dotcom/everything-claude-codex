@@ -1,0 +1,104 @@
+[
+ {
+  "task": "prices",
+  "config": "claude",
+  "hidden_passed": 9,
+  "hidden_total": 9,
+  "minutes": 0.5,
+  "workdir": "/var/folders/76/t6_y8s511rz0sncdskvbqy2m0000gn/T/duo-bench-prices-qdf74n48",
+  "claude_cost_usd": 0.16431,
+  "turns": 7
+ },
+ {
+  "task": "prices",
+  "config": "codex",
+  "hidden_passed": 9,
+  "hidden_total": 9,
+  "minutes": 1.2,
+  "workdir": "/var/folders/76/t6_y8s511rz0sncdskvbqy2m0000gn/T/duo-bench-prices-dffy939c",
+  "codex_tokens": 164410
+ },
+ {
+  "task": "prices",
+  "config": "duo",
+  "hidden_passed": 9,
+  "hidden_total": 9,
+  "minutes": 10.7,
+  "workdir": "/var/folders/76/t6_y8s511rz0sncdskvbqy2m0000gn/T/duo-bench-prices-wzg_b1xj",
+  "status": "done",
+  "messages": 53,
+  "cards": 5,
+  "objections": 0,
+  "verified": 16,
+  "claude_5h_pct_used": 2,
+  "codex_5h_pct_used": 4
+ },
+ {
+  "task": "durations",
+  "config": "claude",
+  "hidden_passed": 14,
+  "hidden_total": 14,
+  "minutes": 0.4,
+  "workdir": "/var/folders/76/t6_y8s511rz0sncdskvbqy2m0000gn/T/duo-bench-durations-hsqhfgo3",
+  "claude_cost_usd": 0.15677259999999998,
+  "turns": 4
+ },
+ {
+  "task": "durations",
+  "config": "codex",
+  "hidden_passed": 14,
+  "hidden_total": 14,
+  "minutes": 0.7,
+  "workdir": "/var/folders/76/t6_y8s511rz0sncdskvbqy2m0000gn/T/duo-bench-durations-1ljxdenz",
+  "codex_tokens": 129985
+ },
+ {
+  "task": "durations",
+  "config": "duo",
+  "hidden_passed": 14,
+  "hidden_total": 14,
+  "minutes": 3.3,
+  "workdir": "/var/folders/76/t6_y8s511rz0sncdskvbqy2m0000gn/T/duo-bench-durations-2k96p4rm",
+  "status": "done",
+  "messages": 23,
+  "cards": 6,
+  "objections": 2,
+  "verified": 3,
+  "claude_5h_pct_used": 2,
+  "codex_5h_pct_used": 1
+ },
+ {
+  "task": "lru",
+  "config": "claude",
+  "hidden_passed": 8,
+  "hidden_total": 8,
+  "minutes": 0.4,
+  "workdir": "/var/folders/76/t6_y8s511rz0sncdskvbqy2m0000gn/T/duo-bench-lru-stexdpjh",
+  "claude_cost_usd": 0.15885680000000002,
+  "turns": 5
+ },
+ {
+  "task": "lru",
+  "config": "codex",
+  "hidden_passed": 8,
+  "hidden_total": 8,
+  "minutes": 0.9,
+  "workdir": "/var/folders/76/t6_y8s511rz0sncdskvbqy2m0000gn/T/duo-bench-lru-tvp9xwxi",
+  "codex_tokens": 131479
+ },
+ {
+  "task": "lru",
+  "config": "duo",
+  "hidden_passed": 8,
+  "hidden_total": 8,
+  "minutes": 3.9,
+  "workdir": "/var/folders/76/t6_y8s511rz0sncdskvbqy2m0000gn/T/duo-bench-lru-2rtaw33j",
+  "status": "done",
+  "messages": 37,
+  "cards": 3,
+  "objections": 0,
+  "verified": 11,
+  "claude_5h_pct_used": 2,
+  "codex_5h_pct_used": 2
+ }
+]
