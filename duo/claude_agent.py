@@ -58,6 +58,12 @@ def parse_line(obj):
                     text = c if isinstance(c, str) else " ".join(x.get("text", "") for x in c or [] if isinstance(x, dict))
                     out.append(("tool_result", {"id": b.get("tool_use_id"), "text": short(text, 400),
                                                 "error": bool(b.get("is_error"))}))
+    elif t == "rate_limit_event":
+        w = (obj.get("rate_limit_info") or {}).get("unifiedWindows") or {}
+        five, week = w.get("five_hour") or {}, w.get("seven_day") or {}
+        if five or week:
+            out.append(("usage", {"five_hour": round((five.get("utilization") or 0) * 100),
+                                  "seven_day": round((week.get("utilization") or 0) * 100), "resets": five.get("resetsAt")}))
     elif t == "result":
         out.append(("turn_end", {"status": obj.get("subtype"), "text": short(obj.get("result") or "", 400)}))
     return out

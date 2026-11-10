@@ -18,12 +18,14 @@ class Ctx:
     existed: set = field(default_factory=set)
     created: set = field(default_factory=set)
     protected: list = field(default_factory=list)
+    readable: list = field(default_factory=list)  # folders agents may cd into to read, never to change (the vault)
 
     def __post_init__(self):
         # agents report real paths (/private/var/...), the user may pass a symlinked one (/var/...)
         self.workdir = os.path.realpath(os.path.expanduser(self.workdir))
         self.existed = {os.path.realpath(p) for p in self.existed}
         self.created = {os.path.realpath(p) for p in self.created}
+        self.readable = [os.path.realpath(os.path.expanduser(p)) for p in self.readable]
 
     def mark_created(self, path):
         self.created.add(os.path.realpath(path))
@@ -65,7 +67,7 @@ DESTRUCTIVE = [  # card: discards work, rewrites history, or switches the branch
      r"system|subprocess|spawn|exec|urlopen|requests|fetch|http|socket|writeFile|open\()", "runs inline code that can "
      "change files or reach the network"),
 ]
-READ_ONLY = ("ls", "cat", "head", "tail", "wc", "grep", "rg", "git status", "git log", "git diff", "git show",
+READ_ONLY = ("cd", "ls", "cat", "head", "tail", "wc", "grep", "rg", "git status", "git log", "git diff", "git show",
              "git ls-files", "git rev-parse", "git blame", "git grep", "du", "df", "date", "uname",
              "pwd", "echo", "tree", "which", "python --version", "python3 --version", "node --version", "file", "stat")
 READ_VERBS = re.compile(r"^(get|list|search|read|fetch|query|find|describe|status|whoami|lookup|count|check|health|"
@@ -158,10 +160,20 @@ def _structure(cmd, ctx):
     """Card reasons that need the command's shape, not just a pattern."""
     words_src = cmd
     cmd = re.sub(r"'[^']*'|\"(?:\\.|[^\"\\])*\"", '""', cmd)  # quoted text is data: a ">" in a message is not a redirect
+    reads_elsewhere = False
     for m in re.finditer(r"(?:^|[;&|(]\s*)cd(?:\s+([^\s;&|)]+))?", cmd):
         t = m.group(1)
-        if not t or any(ch in t for ch in "$~`") or not _inside(_abs(t, ctx), ctx.workdir):
+        if not t or any(ch in t for ch in "$`"):
             return "changes directory out of the work folder"
+        p = _abs(t, ctx)
+        if _inside(p, ctx.workdir):
+            continue
+        if any(_inside(p, r) for r in ctx.readable):
+            reads_elsewhere = True  # fine only if everything in the command just reads
+            continue
+        return "changes directory out of the work folder"
+    if reads_elsewhere and not _read_only(words_src, ctx):
+        return "goes into a read-only folder (your vault) and may change something there"
     for m in re.finditer(r"(?<![<\d&])(>>?)\s*([^\s;&|)]+)", cmd):
         t = m.group(2).strip("'\"")
         if t in ("/dev/null", "/dev/stderr", "/dev/stdout") or t.startswith("&"):

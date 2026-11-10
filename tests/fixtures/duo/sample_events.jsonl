@@ -1,5 +1,7 @@
 {"seq": 1, "ts": 1794310000, "agent": "duo", "kind": "status", "status": "running", "phase": "plan", "goal": "make the failing login test pass without weakening the check"}
 {"seq": 2, "ts": 1794310007, "agent": "claude", "kind": "tool", "name": "Read", "detail": "{\"file_path\": \"auth/login.py\"}"}
+{"seq": 0, "ts": 1794310007, "agent": "claude", "kind": "usage", "five_hour": 42, "seven_day": 18, "resets": 0}
+{"seq": 0, "ts": 1794310007, "agent": "codex", "kind": "usage", "five_hour": 81, "seven_day": 7, "resets": 0}
 {"seq": 3, "ts": 1794310014, "agent": "claude", "kind": "tool", "name": "Bash", "detail": "python3 -m pytest tests/test_login.py -q"}
 {"seq": 4, "ts": 1794310021, "agent": "claude", "kind": "tool_result", "text": "1 failed: test_rejects_expired_token (expected 401, got 200)", "error": true}
 {"seq": 5, "ts": 1794310028, "agent": "claude", "kind": "message", "text": "The test is right and the code is wrong: `check_token` compares `exp` as a string, so `'1794' > '17'` passes. I want to parse it as an int and reject anything past now."}

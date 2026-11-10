@@ -21,6 +21,7 @@ class Limits:
     max_turns: int = 400
     circle_after: int = 8
     idle_delay: float = 3.0
+    usage_pause: int = 90  # pause and ping when either agent's 5-hour limit reaches this percent
     max_nudges: int = 3
 
 
@@ -106,6 +107,9 @@ class Orchestrator:
 
     # --------------------------------------------------------------- events
     def _on_event(self, n, kind, data):
+        if kind == "usage":
+            self._usage(n, data)
+            return
         if kind != "message":
             self.log.add(n, kind, **data)
         if kind == "message":
@@ -131,6 +135,18 @@ class Orchestrator:
             self.talk_streak = 0
             detail = data.get("detail") or ", ".join(data.get("paths") or [])
             self.activity[n].append(detail if kind == "tool" else f"changed {detail}")
+
+    def _usage(self, n, data):
+        last = getattr(self, "_last_usage", {})
+        self._last_usage = last
+        key = (data.get("five_hour"), data.get("seven_day"))
+        if last.get(n) == key:
+            return
+        last[n] = key
+        self.log.add(n, "usage", **data)
+        pct = data.get("five_hour") or 0
+        if pct >= self.limits.usage_pause:
+            self._pause(f"{NAMES[n]}'s 5-hour usage limit is at {pct}%")
 
     def _turn_end(self, n):
         self.turns += 1

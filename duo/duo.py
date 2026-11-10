@@ -148,7 +148,8 @@ def main(argv=None):
 
     log = EventLog(os.path.join(run_dir, "events.jsonl"))
     log.add("duo", "status", status="starting", base=base, branch=branch, previous=previous)
-    ctx = Ctx(workdir=workdir, phase="plan", existed=snapshot(workdir), protected=protected_paths())
+    readable = [os.environ["ECX_VAULT"]] if os.environ.get("ECX_VAULT") else []
+    ctx = Ctx(workdir=workdir, phase="plan", existed=snapshot(workdir), protected=protected_paths(), readable=readable)
     effort = "high" if a.best else "medium"
     agents = {"claude": ClaudeAgent(workdir, a.claude_model or ("opus" if a.best else "sonnet"), effort),
               "codex": CodexAgent(workdir, a.codex_model, effort)}

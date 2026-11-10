@@ -47,6 +47,10 @@ def parse_notification(method, params):
         return [("turn_started", {"id": (params.get("turn") or {}).get("id")})]
     if method == "turn/completed":
         return [("turn_end", {"status": (params.get("turn") or {}).get("status")})]
+    if method == "account/rateLimits/updated":
+        r = params.get("rateLimits") or {}
+        p, s = r.get("primary") or {}, r.get("secondary") or {}
+        return [("usage", {"five_hour": p.get("usedPercent"), "seven_day": s.get("usedPercent"), "resets": p.get("resetsAt")})]
     if method == "error":
         return [("error", {"text": short(params, 400)})]
     if method != "item/completed":

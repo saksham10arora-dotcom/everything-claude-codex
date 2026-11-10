@@ -45,6 +45,10 @@ header { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; pad
 .goal { color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
 .state { display: flex; gap: 8px; align-items: center; color: var(--mute); font-size: 13px; white-space: nowrap; }
 .phase { color: var(--ink); background: var(--raise); border: 1px solid var(--line); border-radius: 99px; padding: 2px 10px; }
+.usage { display: flex; gap: 10px; }
+.usage b { font-weight: 600; }
+.usage .c { color: var(--claude); } .usage .x { color: var(--codex); }
+.usage .hi { color: var(--ask); } .usage .max { color: var(--no); }
 .phase.paused { color: var(--ask); border-color: var(--ask); }
 .phase.done { color: var(--ok); border-color: var(--ok); }
 .phase.stopped, .phase.crashed, .phase.failed { color: var(--no); border-color: var(--no); }
@@ -140,6 +144,7 @@ aside h2 { font-size: 13px; color: var(--mute); font-weight: 600; margin: 0 0 10
     <div class="state">
       <span class="phase" id="phase">starting</span>
       <span id="clock">0:00</span>
+      <span class="usage" id="usage" title="Share of each agent's usage limit used: 5-hour window / weekly. duo pauses at 90% of a 5-hour limit."></span>
       <button id="pause" type="button">Pause</button>
       <button id="stop" type="button">Stop</button>
     </div>
@@ -272,6 +277,7 @@ function handle(e) {
   else if (k === "card_resolved") closeCard(e);
   else if (k === "blocked") { endWork(); add(el("div", "sys err", `Blocked for ${esc(NAME[e.by] || e.by || "")}: <code>${esc(e.summary || e.detail)}</code> ${esc(e.reason)}`), keep); }
   else if (k === "error") { endWork(); add(el("div", "sys err", esc(e.text)), keep); }
+  else if (k === "usage") { usage[e.agent] = e; drawUsage(); return; }
   else if (k === "report") { endWork(); add(el("div", "sys", `Report written: <code>${esc(e.path)}</code>`), keep); }
   else if (k === "status") {
     if (e.goal) $("goal").textContent = e.goal;
@@ -288,6 +294,13 @@ function handle(e) {
     setPhase();
   }
   if (k === "message" || k === "file_change" || k === "card_resolved") refreshPlan();
+}
+
+const usage = {};
+function pct(v) { if (v == null) return "?"; const cls = v >= 90 ? "max" : v >= 75 ? "hi" : ""; return `<b class="${cls}">${v}%</b>`; }
+function drawUsage() {
+  $("usage").innerHTML = ["claude", "codex"].filter((n) => usage[n])
+    .map((n) => `<span><span class="${n === "claude" ? "c" : "x"}">${NAME[n]}</span> ${pct(usage[n].five_hour)} / ${pct(usage[n].seven_day)}</span>`).join("");
 }
 
 let planTimer = null;

@@ -7,7 +7,7 @@ import time
 
 AGENTS = {"claude", "codex", "user", "duo"}
 KINDS = {"message", "reasoning", "tool", "tool_result", "file_change", "card_open", "card_resolved", "blocked",
-         "status", "signal", "error", "report"}
+         "status", "signal", "error", "report", "usage"}
 
 
 class EventLog:
