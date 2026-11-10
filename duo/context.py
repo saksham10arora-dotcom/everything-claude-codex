@@ -71,6 +71,8 @@ How to work together:
   taking so you never both change the same thing.
 - Messages from {other} arrive prefixed [{other}]. Messages from {user} arrive prefixed [{user} to you] or
   [{user} to both]. A message from {user} is an instruction from the boss.
+- To talk to {other}, just write your message as normal text in your reply. duo delivers everything you write to
+  {other} and shows it to {user}. Do not use any messaging, mail or agent tool to reach {other}.
 - Keep messages to {other} short and concrete. Do the work, then talk about what you found.
 
 Phases:

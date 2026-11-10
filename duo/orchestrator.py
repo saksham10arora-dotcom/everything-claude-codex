@@ -77,7 +77,6 @@ class Orchestrator:
         first = (f"[duo] The run has started. Goal: {self.goal}\n"
                  f"Start by reading the project and planning with {other}. The plan goes in "
                  f"{os.path.join(self.run_dir, 'plan.md')}.")
-        self.agents[n].busy = True
         await self.agents[n].start(brief, first)
 
     async def _sender(self, n):

@@ -76,6 +76,28 @@ class Parse(unittest.TestCase):
 
 
 class Live(unittest.TestCase):
+    def test_first_turn_starts_even_if_marked_busy(self):
+        out, work = tempfile.mktemp(), os.path.realpath(tempfile.mkdtemp())
+        env = {"ECX_DUO_CODEX_BIN": f"{sys.executable} {os.path.join(FIX, 'fake_codex.py')}", "FAKE_OUT": out,
+               "ECX_DUO_CODEX_HOME": os.path.join(tempfile.mkdtemp(), "h")}
+
+        async def go():
+            a = CodexAgent(work, None, "medium")
+            ended = asyncio.Event()
+            a.on_turn_end = ended.set
+
+            async def approve(ap):
+                return "allow", ""
+            a.on_approval = approve
+            a.busy = True  # what the orchestrator used to do before start
+            await a.start("BRIEF", "go")
+            await asyncio.wait_for(ended.wait(), 10)
+            await a.close()
+
+        with mock.patch.dict(os.environ, env):
+            asyncio.run(go())
+        self.assertIn("turn/start", [json.loads(l).get("method") for l in open(out)])
+
     def test_steer_used_when_busy_and_thread_is_ephemeral(self):
         out, work = tempfile.mktemp(), os.path.realpath(tempfile.mkdtemp())
         env = {"ECX_DUO_CODEX_BIN": f"{sys.executable} {os.path.join(FIX, 'fake_codex.py')}", "FAKE_OUT": out,

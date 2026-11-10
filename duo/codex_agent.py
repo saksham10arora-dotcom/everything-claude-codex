@@ -141,7 +141,7 @@ class CodexAgent(Agent):
         home = codex_home()
         self.proc = await asyncio.create_subprocess_exec(
             *self._cmd(home), cwd=self.workdir, env={**os.environ, "CODEX_HOME": home},
-            stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
+            stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=self._stderr(),
             limit=16 * 1024 * 1024)
         self._reader = asyncio.create_task(self._read())
         await self._call("initialize", {"clientInfo": {"name": "ecx-duo", "version": "1"}})
@@ -151,7 +151,12 @@ class CodexAgent(Agent):
         if self.model:
             params["model"] = self.model
         self.thread = (await self._call("thread/start", params))["thread"]["id"]
+        self.busy = False  # no turn exists yet, whatever anyone set before start
         await self.send(first_message)
+
+    def _stderr(self):
+        path = getattr(self, "stderr_path", None)
+        return open(path, "ab") if path else asyncio.subprocess.DEVNULL
 
     def _sandbox(self):
         return {"type": "readOnly"} if self.phase == "plan" else {"type": "workspaceWrite", "networkAccess": True}

@@ -121,3 +121,16 @@ class Policy(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PlanPhaseChains(unittest.TestCase):
+    def test_read_only_chain_allowed(self):
+        cmd = "ls -a && git ls-files && cat *.py 2>/dev/null | head -80 && (python3 -m pytest -q 2>&1 | tail -20)"
+        self.assertEqual(bash(cmd, phase="plan"), "allow")
+
+    def test_chain_with_write_is_card(self):
+        self.assertEqual(bash("ls && echo hi > notes.txt", phase="plan"), "card")
+        self.assertEqual(bash("cat a.py | tee b.py", phase="plan"), "card")
+        self.assertEqual(bash("ls; python3 setup.py install", phase="plan"), "card")
+        self.assertEqual(bash("sed -i s/a/b/ a.py", phase="plan"), "card")
+        self.assertEqual(bash("echo $(rm a)", phase="plan"), "card")

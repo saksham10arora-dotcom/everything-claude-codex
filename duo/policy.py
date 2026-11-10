@@ -50,7 +50,8 @@ OUTWARD = [
     (r"(\bnpm\s+(install|i)\b.*\s(-g|--global)\b)|\bbrew\s+install\b|\bsudo\s+pip\b|\bpip3?\s+install\b.*--user\b",
      "installs a global package"),
 ]
-READ_ONLY = ("ls", "cat", "head", "tail", "wc", "grep", "rg", "find", "git status", "git log", "git diff", "git show",
+READ_ONLY = ("ls", "cat", "head", "tail", "wc", "grep", "rg", "find", "git status", "git log", "git diff", "git show", "git ls-files", "git branch", "git rev-parse",
+             "git blame", "git grep", "du", "df", "date", "uname",
              "pwd", "echo", "tree", "which", "python --version", "python3 --version", "node --version", "file", "stat")
 MCP_ACTS = re.compile(r"(send|reply|post|publish|create|delete|update|forward|trash|upload|share|respond|merge|push|fork|"
                       r"comment|label|spam|draft|schedule|book|pay|transfer|submit|click|type|navigate|fill|form|"
@@ -104,6 +105,25 @@ def _rm_targets(cmd):
     return out
 
 
+TESTS = ("pytest", "python -m pytest", "python3 -m pytest", "python -m unittest", "python3 -m unittest", "npm test",
+         "npm run test", "yarn test", "pnpm test", "cargo test", "go test", "make test", "bun test")
+SAFE_PIPE_TARGETS = ("head", "tail", "wc", "grep", "rg", "sort", "uniq", "cut", "cat", "less", "awk", "sed -n", "tr")
+
+
+def _read_only(cmd):
+    """True when every piece of a command chain only reads (or runs the test suite)."""
+    c = re.sub(r"\s[12]?>\s*/dev/null|\s2>&1", " ", cmd)
+    if re.search(r">|`|\$\(|\btee\b|\bsed\s+-i", c):
+        return False
+    for part in re.split(r"&&|\|\||;|\|", c):
+        p = part.strip().strip("()").strip()
+        if not p:
+            continue
+        if not any(p == r or p.startswith(r + " ") for r in READ_ONLY + TESTS + SAFE_PIPE_TARGETS):
+            return False
+    return True
+
+
 def _bash(req, ctx):
     cmd = unwrap(req.input.get("command", ""))
     decision, why = guard.decide(cmd)
@@ -123,10 +143,8 @@ def _bash(req, ctx):
             if t == "<recursive>" or any(ch in t for ch in "*?[") or p in ctx.existed or os.path.isdir(p) \
                     or not _inside(p, ctx.workdir):
                 return "card", f"This command deletes {t if t != '<recursive>' else 'a folder'}, which was there before this run."
-    if ctx.phase == "plan":
-        first = cmd.strip()
-        if not any(first == r or first.startswith(r + " ") for r in READ_ONLY) or re.search(r"[>|;&]", first):
-            return "card", "The plan is not approved yet, and this command may change things."
+    if ctx.phase == "plan" and not _read_only(cmd):
+        return "card", "The plan is not approved yet, and this command may change things."
     return "allow", ""
 
 

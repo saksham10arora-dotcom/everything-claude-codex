@@ -136,6 +136,8 @@ def main(argv=None):
     effort = "high" if a.best else "medium"
     agents = {"claude": ClaudeAgent(workdir, a.claude_model or ("opus" if a.best else "sonnet"), effort),
               "codex": CodexAgent(workdir, a.codex_model, effort)}
+    for n, agent in agents.items():
+        agent.stderr_path = os.path.join(run_dir, f"{n}.stderr.log")
     orch = Orchestrator(workdir, run_dir, agents, log, ctx, a.user, Limits(hours=a.hours), report_fn=report.write)
 
     async def go():

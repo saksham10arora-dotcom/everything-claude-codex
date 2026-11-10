@@ -97,7 +97,8 @@ class ClaudeAgent(Agent):
         self._brief_path = path
         self.proc = await asyncio.create_subprocess_exec(
             *self._cmd(path), cwd=self.workdir, stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.DEVNULL, limit=16 * 1024 * 1024)
+            stderr=open(self.stderr_path, "ab") if getattr(self, "stderr_path", None) else asyncio.subprocess.DEVNULL,
+            limit=16 * 1024 * 1024)
         self._reader = asyncio.create_task(self._read())
         await self._write({"type": "control_request", "request_id": self._rid(), "request": {"subtype": "initialize"}})
         await self.send(first_message)
