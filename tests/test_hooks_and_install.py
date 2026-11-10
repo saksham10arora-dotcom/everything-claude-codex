@@ -29,7 +29,8 @@ def decision(command):
 
 class Guard(unittest.TestCase):
     def test_blocks_catastrophic(self):
-        for c in ("rm -rf /", "rm -rf ~", "sudo rm -rf / --no-preserve-root", "mkfs.ext4 /dev/sda1", "chmod -R 777 /"):
+        for c in ("rm -rf /", "rm -rf ~", "sudo rm -rf / --no-preserve-root", "mkfs.ext4 /dev/sda1", "chmod -R 777 /",
+                  "find / -delete", "find ~ -delete", "sudo find / -delete"):
             self.assertEqual(decision(c), "deny", c)
 
     def test_asks_before_risky(self):
@@ -37,7 +38,7 @@ class Guard(unittest.TestCase):
             self.assertEqual(decision(c), "ask", c)
 
     def test_allows_normal(self):
-        for c in ("ls -la", "npm test", "git push origin main", "python3 -m pytest"):
+        for c in ("ls -la", "npm test", "git push origin main", "python3 -m pytest", "find . -name \"*.py\"", "find / -name \"*.py\""):
             self.assertEqual(decision(c), "allow", c)
 
 
@@ -368,6 +369,38 @@ class Uninstall(unittest.TestCase):
                        env=env, check=True, capture_output=True)
         self.assertFalse(os.path.exists(settings))
         self.assertFalse(os.path.exists(settings + ".ecx-new"))
+
+
+class UninstallDryRun(unittest.TestCase):
+    def snapshot(self, home):
+        return sorted(os.path.join(d, n) for d, dirs, files in os.walk(home) for n in dirs + files)
+
+    def test_dry_run_changes_nothing_and_lists_the_plan(self):
+        home = tempfile.mkdtemp()
+        vault = os.path.join(home, "my vault")
+        env = {**os.environ, "HOME": home, "USERPROFILE": home}
+        subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "install.py"), "--vault", vault, "--name", "Ada"],
+                       env=env, check=True, capture_output=True)
+        before = self.snapshot(home)
+        out = subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "uninstall.py"), "--vault", vault, "--dry-run"],
+                             env=env, check=True, capture_output=True, text=True).stdout
+        self.assertEqual(self.snapshot(home), before, "dry-run must not touch any file")
+        self.assertIn("Nothing was changed", out)
+
+    def test_dry_run_lists_backups_and_links(self):
+        home = tempfile.mkdtemp()
+        vault = os.path.join(home, "my vault")
+        env = {**os.environ, "HOME": home, "USERPROFILE": home}
+        settings = os.path.join(home, ".claude", "settings.json")
+        os.makedirs(os.path.dirname(settings))
+        with open(settings, "w") as f:
+            f.write('{"theme": "dark"}\n')
+        subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "install.py"), "--vault", vault, "--name", "Ada"],
+                       env=env, check=True, capture_output=True)
+        out = subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "uninstall.py"), "--vault", vault, "--dry-run"],
+                             env=env, check=True, capture_output=True, text=True).stdout
+        self.assertIn("would restore", out)
+        self.assertIn("would remove link", out)
 
 
 if __name__ == "__main__":
