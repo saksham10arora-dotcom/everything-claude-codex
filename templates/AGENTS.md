@@ -52,6 +52,7 @@ You're in cloud mode when `{{VAULT}}` doesn't exist on this machine: you're work
   ---
   ```
   then their words plus every detail they gave. Edit nothing else. Push to the default branch, or open a PR with only that file: the inbox auto-merge Action merges it, and Claude files it properly on the laptop. Confirm in one sentence what you saved.
+- **Codex Cloud asks before it pushes.** If your environment needs {{NAME}}'s OK to publish, ask once in one line ("publish this note to the default branch?") and push only that file when they say yes.
 
 ## 8. Talking to Claude directly (agent mail)
 

@@ -129,6 +129,8 @@ A router picks the right one. All of it re-indexes every night.
 ### 4. Phone vault: laptop shut, still works
 After every reply, your notes and a copy of your memory sync to your private GitHub repo. On your phone, Claude (Claude app) and Codex (ChatGPT app) work on that repo in the cloud. Say "I met Adi, he's at X": one note lands in `inbox/`, a GitHub Action merges it, and Claude files it next time you open your laptop.
 
+The two phone apps differ in one step. The Claude app pushes the note on its own. Codex in the ChatGPT app commits it in its cloud copy, then asks before touching your real repo: reply `yes, publish it to master` (or `open a PR with only that file`) and the auto-merge takes it from there.
+
 ### 5. Self-healing hooks
 - **Tests before done:** when Claude Code or Codex tries to finish, your tests run first. If they fail, the agent is sent back with the failing output and has to fix it. It runs only when something changed, finds npm, pytest, unittest, cargo, go and make tests on its own, and gives up after 3 tries instead of looping. Set the command per repo in `.ecx/test-command` (or `off`).
 - **Danger guard:** blocks `rm -rf ~`, disk formats and fork bombs; asks before force-pushes, `reset --hard` and `DROP TABLE`.
