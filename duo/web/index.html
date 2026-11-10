@@ -32,6 +32,7 @@ button, input, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; border: 1px solid var(--line); background: var(--raise); border-radius: 8px; padding: 6px 12px; }
 button:hover { border-color: var(--mute); }
 button:active { transform: translateY(1px); }
+button:disabled { opacity: .4; cursor: default; }
 :focus-visible { outline: 2px solid var(--codex); outline-offset: 2px; }
 
 .app { display: grid; grid-template-columns: minmax(0, 1fr) 340px; grid-template-rows: auto minmax(0, 1fr); height: 100dvh; }
