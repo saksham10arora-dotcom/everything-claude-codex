@@ -11,7 +11,7 @@ from duo.policy import classify
 NAMES = {"claude": "Claude", "codex": "Codex"}
 OTHER = {"claude": "codex", "codex": "claude"}
 MENTION = re.compile(r"^\s*((?:@(?:claude|codex)\b[\s,]*)+)(.*)$", re.I | re.S)
-READY = re.compile(r"\[\[READY:\s*(plan|done)\s*\]\]", re.I)
+READY = re.compile(r"\[\[READY:\s*(draft|plan|done)\s*\]\]", re.I)
 QUIET = re.compile(r"\[\[QUIET\]\]", re.I)
 
 
@@ -27,12 +27,12 @@ class Limits:
 
 class Orchestrator:
     def __init__(self, workdir, run_dir, agents, log, ctx, user, limits=None, brief_fn=None, report_fn=None,
-                 power="normal"):
+                 power="normal", council=False):
         self.workdir, self.run_dir, self.agents, self.log, self.ctx, self.user = workdir, run_dir, agents, log, ctx, user
         self.limits = limits or Limits()
         self.brief_fn = brief_fn or context.brief
         self.report_fn = report_fn
-        self.phase = "plan"
+        self.phase = "council" if council else "plan"  # council: a blind first round before the joint plan
         self.status = "running"
         self.ready = {n: None for n in agents}
         self.cards = {}  # id -> {"future", "card", ...}
@@ -69,7 +69,7 @@ class Orchestrator:
         self._unpaused = asyncio.Event()
         self._unpaused.set()
         self.goal = goal
-        self.log.add("duo", "status", status="running", phase="plan", goal=goal, power=self.power)
+        self.log.add("duo", "status", status="running", phase=self.phase, goal=goal, power=self.power)
         for n in self.agents:
             self._tasks.append(asyncio.ensure_future(self._sender(n)))
         self._tasks.append(asyncio.ensure_future(self._watchdog()))
@@ -88,9 +88,16 @@ class Orchestrator:
         other = NAMES[OTHER[n]]
         brief = self.brief_fn(NAMES[n], other, self.goal, self.user, self.run_dir)
         self._set_working(n, True)
-        first = (f"[duo] The run has started. Goal: {self.goal}\n"
-                 f"Start by reading the project and planning with {other}. The plan goes in "
-                 f"{os.path.join(self.run_dir, 'plan.md')}.")
+        if self.phase == "council":
+            first = (f"[duo] The run has started. Goal: {self.goal}\n"
+                     f"Round 1 is blind. On your own, without reading {other}'s draft or waiting for their messages, "
+                     f"write your plan to {self._draft(n)}: your approach, the steps, the risks, and what you are "
+                     f"unsure about. Read the project as much as you need, but do not change it. When the draft is "
+                     f"written, say [[READY: draft]]. Then you will see {other}'s draft and critique it.")
+        else:
+            first = (f"[duo] The run has started. Goal: {self.goal}\n"
+                     f"Start by reading the project and planning with {other}. The plan goes in "
+                     f"{os.path.join(self.run_dir, 'plan.md')}.")
         await self.agents[n].start(brief, first)
 
     async def _sender(self, n):
@@ -128,6 +135,9 @@ class Orchestrator:
             self.ready[n] = tags[-1].lower() if tags else None
             if tags:
                 self.log.add(n, "signal", ready=self.ready[n])
+            if self.phase == "council":  # blind round: the user sees it, the other agent does not
+                self._check_drafts()
+                return
             self._send(OTHER[n], f"[{NAMES[n]}]: {text}")
             self.talk_streak += 1
             if self.talk_streak == self.limits.circle_after:
@@ -309,6 +319,33 @@ class Orchestrator:
                                 "there, then say [[READY: done]] again.")
                 return
             asyncio.ensure_future(self.finish("done"))
+
+    def _draft(self, n):
+        return os.path.join(self.run_dir, f"draft-{n}.md")
+
+    def _check_drafts(self):
+        if any(v != "draft" for v in self.ready.values()):
+            return
+        missing = [n for n in self.agents if not os.path.exists(self._draft(n))]
+        if missing:
+            for n in missing:
+                self.ready[n] = None
+                self._send(n, f"[duo] You said your draft is ready, but {self._draft(n)} does not exist. Write it "
+                              "there, then say [[READY: draft]] again.")
+            return
+        texts = {n: open(self._draft(n), errors="replace").read() for n in self.agents}
+        self.log.add("duo", "drafts", **texts)
+        self.phase = "plan"
+        self._reset_ready()
+        self.log.add("duo", "status", status=self.status, phase="plan")
+        plan = os.path.join(self.run_dir, "plan.md")
+        for n in self.agents:
+            other = NAMES[OTHER[n]]
+            self._send(n, f"[duo] Both blind drafts are in. Here is {other}'s plan, written without seeing yours:\n\n"
+                          f"{texts[OTHER[n]]}\n\n[end of {other}'s draft]\n\nNow critique it honestly: what it does "
+                          f"better than yours, and what is wrong or missing, with evidence. Change your mind only for "
+                          f"a real reason. Then work with {other} to merge the best of both into {plan}, and say "
+                          f"[[READY: plan]] when the merged plan is ready for {self.user}.")
 
     def _reset_ready(self):
         self.ready = {n: None for n in self.agents}

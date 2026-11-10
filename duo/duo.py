@@ -118,6 +118,7 @@ def main(argv=None):
     ap.add_argument("--user", default=os.environ.get("ECX_USER") or os.environ.get("AGENT_SYNC_USER") or "the user")
     ap.add_argument("--port", type=int, default=0)
     ap.add_argument("--no-open", action="store_true")
+    ap.add_argument("--no-council", action="store_true", help="skip the blind first round and plan together from the start")
     a = ap.parse_args(argv)
 
     workdir = os.path.realpath(os.getcwd())
@@ -156,7 +157,7 @@ def main(argv=None):
     for n, agent in agents.items():
         agent.stderr_path = os.path.join(run_dir, f"{n}.stderr.log")
     orch = Orchestrator(workdir, run_dir, agents, log, ctx, a.user, Limits(hours=a.hours), report_fn=report.write,
-                        power="high" if a.best else "normal")
+                        power="high" if a.best else "normal", council=not a.no_council)
 
     async def go():
         loop = asyncio.get_running_loop()

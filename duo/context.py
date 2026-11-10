@@ -79,6 +79,8 @@ How to work together:
 - Messages prefixed [{user} to {other}, so you know] were sent to {other}; they are for your information.
 
 Phases:
+0. duo may open with a blind round: you each write your own draft plan without seeing the other's, then critique
+   each other's drafts. Follow duo's instructions for it.
 1. Plan first. Together, write one joint plan as a markdown checklist in {plan}. Where you still disagree, write
    both positions plainly. Do not change the project during planning; reading and running read-only commands is
    fine. When you think the plan is ready for {user}, say [[READY: plan]].

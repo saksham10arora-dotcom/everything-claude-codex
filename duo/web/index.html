@@ -130,6 +130,15 @@ details.work[open] summary::before { transform: rotate(45deg); }
 .tool .res { color: var(--mute); } .tool .bad { color: var(--no); }
 .tool.reason { font-family: var(--round); font-style: italic; color: var(--mute); }
 
+.takes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; animation: pop .25s var(--ease); }
+.takes-head { grid-column: 1 / -1; text-align: center; font-size: 13px; font-weight: 650; color: var(--mute); }
+.take { border-radius: 18px; padding: 10px 12px; min-width: 0; }
+.take.claude { background: var(--claude-bg); } .take.codex { background: var(--codex-bg); }
+.take summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 6px; font-weight: 750; }
+.take summary::-webkit-details-marker { display: none; }
+.take.claude summary { color: var(--claude-ink); } .take.codex summary { color: var(--codex-ink); }
+.take-body { font-size: 13.5px; margin-top: 6px; max-height: 320px; overflow: auto; overflow-wrap: anywhere; }
+.take-body p, .take-body h3 { margin: 0 0 6px; } .take-body h3 { font-size: 13.5px; } .take-body ul { margin: 0 0 6px; padding-left: 18px; }
 .sys { align-self: center; font-size: 13px; color: var(--mute); background: var(--sunk); border-radius: 99px; padding: 4px 12px; text-align: center; max-width: 90%; overflow-wrap: anywhere; }
 .sys.flag { background: var(--ask-bg); color: var(--ask-ink); }
 .sys.err { background: oklch(0.95 0.03 25); color: var(--no); }
@@ -189,6 +198,7 @@ aside h2 { font-size: 14px; margin: 0 0 12px; font-weight: 750; }
   main { grid-column: 1; grid-row: 3; }
   #chat { padding: 16px 12px 24px; } form.say { padding: 8px 10px 12px; }
   .msg { max-width: 96%; } details.work, .card { margin-left: 0; }
+  .takes { grid-template-columns: 1fr; }
   .chip span, .chip { font-size: 0; padding: 3px; gap: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -334,7 +344,7 @@ function banner(text, cls) { const b = $("banner"); b.className = "banner" + (te
 function setState() {
   const p = $("phase"), live = status === "running";
   p.className = "pill " + (live ? "live" : status);
-  p.textContent = live ? (phase === "plan" ? "planning" : "building") : status;
+  p.textContent = live ? ({ council: "blind drafts", plan: "planning" }[phase] || "building") : status;
   $("pause").textContent = status === "paused" ? "Resume" : "Pause";
   $("pause").disabled = $("stop").disabled = $("high").disabled = ENDED.includes(status);
   $("high").setAttribute("aria-pressed", String(power === "high"));
@@ -372,6 +382,13 @@ function handle(e) {
   else if (k === "blocked") { endWork(); add(el("div", "sys err", `Blocked for ${esc(NAME[e.by] || e.by || "")}: ${esc(e.reason)}`), keep); }
   else if (k === "error") { endWork(); add(el("div", "sys err", esc(e.text)), keep); }
   else if (k === "report") { endWork(); add(el("div", "sys", `Report saved: <code>${esc(e.path)}</code>`), keep); }
+  else if (k === "drafts") {
+    endWork();
+    const t = el("div", "takes");
+    t.innerHTML = `<div class="takes-head">Blind round: each wrote a plan without seeing the other's. Now they critique and merge.</div>` +
+      ["claude", "codex"].map((n) => `<details class="take ${n}" open><summary>${face(n, "sm")}${NAME[n]}'s take</summary><div class="take-body">${md(e[n])}</div></details>`).join("");
+    add(t, keep);
+  }
   else if (k === "usage") { usage[e.agent] = e; drawUsage(); }
   else if (k === "turn") { working[e.who] = e.state === "working"; drawTyping(); }
   else if (k === "status") {

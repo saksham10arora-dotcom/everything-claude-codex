@@ -54,7 +54,7 @@ async def tick(n=3):
         await asyncio.sleep(0.01)
 
 
-def make(limits=None, existed=()):
+def make(limits=None, existed=(), council=False):
     work = os.path.realpath(tempfile.mkdtemp())
     run_dir = os.path.join(work, ".duo", "r1")
     os.makedirs(run_dir)
@@ -68,6 +68,6 @@ def make(limits=None, existed=()):
         return os.path.join(run_dir_, "report.md")
 
     o = Orchestrator(work, run_dir, agents, log, ctx, "Saksham", limits or Limits(idle_delay=0.02),
-                     brief_fn=lambda me, other, goal, user, rd: f"BRIEF {me}", report_fn=report)
+                     brief_fn=lambda me, other, goal, user, rd: f"BRIEF {me}", report_fn=report, council=council)
     o.reports = reports
     return o, agents, log, work, run_dir
