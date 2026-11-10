@@ -47,7 +47,7 @@ class Orchestrate(unittest.TestCase):
             o.say("@codex agree with Claude on this")
             await tick()
             self.assertIn("[Saksham to you]: agree with Claude on this", a["codex"].sent)
-            self.assertFalse(any("agree with Claude" in s for s in a["claude"].sent))
+            self.assertFalse(any(s.startswith("[Saksham to you]") for s in a["claude"].sent))
             self.assertEqual(kinds(log, "message")[-1]["to"], ["codex"])
             task.cancel()
         run(go())
@@ -230,3 +230,35 @@ class Orchestrate(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SmokeFixes(unittest.TestCase):
+    def test_quiet_is_not_forwarded(self):
+        async def go():
+            o, a, log, *_, task = await started()
+            n = len(a["codex"].sent)
+            a["claude"].say("[[QUIET]]")
+            await tick()
+            self.assertEqual(len(a["codex"].sent), n)
+            task.cancel()
+        run(go())
+
+    def test_mention_copies_other_agent(self):
+        async def go():
+            o, a, log, *_, task = await started()
+            o.say("@codex push it")
+            await tick()
+            self.assertIn("[Saksham to you]: push it", a["codex"].sent)
+            self.assertIn("[Saksham to Codex, so you know]: push it", a["claude"].sent)
+            task.cancel()
+        run(go())
+
+    def test_plan_card_tells_them_to_wait_quietly(self):
+        async def go():
+            o, a, log, work, rd, task = await started()
+            open(os.path.join(rd, "plan.md"), "w").write("- [ ] x")
+            a["claude"].say("[[READY: plan]]"); a["codex"].say("[[READY: plan]]")
+            await tick()
+            self.assertTrue(any("wait" in s.lower() and "[[QUIET]]" in s for s in a["claude"].sent))
+            task.cancel()
+        run(go())

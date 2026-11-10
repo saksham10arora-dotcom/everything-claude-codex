@@ -12,6 +12,7 @@ NAMES = {"claude": "Claude", "codex": "Codex"}
 OTHER = {"claude": "codex", "codex": "claude"}
 MENTION = re.compile(r"^\s*((?:@(?:claude|codex)\b[\s,]*)+)(.*)$", re.I | re.S)
 READY = re.compile(r"\[\[READY:\s*(plan|done)\s*\]\]", re.I)
+QUIET = re.compile(r"\[\[QUIET\]\]", re.I)
 
 
 @dataclass
@@ -97,9 +98,15 @@ class Orchestrator:
 
     # --------------------------------------------------------------- events
     def _on_event(self, n, kind, data):
-        self.log.add(n, kind, **data)
+        if kind != "message":
+            self.log.add(n, kind, **data)
         if kind == "message":
-            text = data.get("text", "")
+            text = QUIET.sub("", data.get("text", "")).strip()
+            if not text:  # "nothing to add": keep it out of the other agent's turn
+                self.log.add(n, "signal", quiet=True)
+                return
+            data = {**data, "text": text}
+            self.log.add(n, kind, **data)
             tags = READY.findall(text)
             self.ready[n] = tags[-1].lower() if tags else None
             if tags:
@@ -263,6 +270,8 @@ class Orchestrator:
         self.ready = {n: None for n in self.agents}
 
     async def _plan_card(self, plan_text):
+        self._broadcast(f"[duo] The plan is with {self.user} now. Wait quietly until you hear back: reply [[QUIET]] "
+                        "to anything that needs no answer.")
         answer, note = await self._card("plan", by="both", summary="The plan is ready for your approval.",
                                         reason="", plan=plan_text)
         self._reset_ready()
@@ -308,6 +317,10 @@ class Orchestrator:
             self.log.add("user", "message", text=text, to=to)
             for n in to:
                 self._send(n, f"[{self.user} to you]: {body}")
+            names = " and ".join(NAMES[n] for n in to)
+            for n in self.agents:
+                if n not in to:  # the other agent sees it too, so nobody acts on instructions the other can't see
+                    self._send(n, f"[{self.user} to {names}, so you know]: {body}")
         else:
             self.log.add("user", "message", text=text, to=sorted(self.agents))
             self._broadcast(f"[{self.user} to both]: {text}")

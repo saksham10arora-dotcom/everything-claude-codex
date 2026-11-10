@@ -2,7 +2,7 @@
 import json
 from dataclasses import dataclass
 
-from duo.policy import Request
+from duo.policy import Request, unwrap
 
 
 @dataclass
@@ -22,7 +22,7 @@ def summarize(req):
     """One line for an approval card."""
     i = req.input
     if req.tool == "bash":
-        return short(i.get("command", ""), 300)
+        return short(unwrap(i.get("command", "")), 300)
     if req.tool in ("write", "edit", "delete", "read"):
         return f"{req.tool} {i.get('path', '')}"
     if req.tool == "mcp":

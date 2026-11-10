@@ -92,3 +92,10 @@ class Live(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Summary(unittest.TestCase):
+    def test_summary_unwraps_codex_shell(self):
+        from duo.agents import summarize
+        from duo.policy import Request
+        self.assertEqual(summarize(Request("codex", "bash", {"command": "/bin/zsh -lc 'git push'"})), "git push")

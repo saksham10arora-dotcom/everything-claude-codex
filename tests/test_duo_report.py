@@ -57,3 +57,10 @@ class Report(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SmokeFixes(unittest.TestCase):
+    def test_declined_command_is_tried_not_ran(self):
+        a = report.audit([ev(1, "codex", "tool", name="shell", detail="git push", status="declined")], WORK)
+        self.assertIn("tried an outward command (declined)", a)
+        self.assertNotIn("ran an outward command", a)

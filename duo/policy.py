@@ -110,13 +110,22 @@ TESTS = ("pytest", "python -m pytest", "python3 -m pytest", "python -m unittest"
 SAFE_PIPE_TARGETS = ("head", "tail", "wc", "grep", "rg", "sort", "uniq", "cut", "cat", "less", "awk", "sed -n", "tr")
 
 
-def _read_only(cmd):
-    """True when every piece of a command chain only reads (or runs the test suite)."""
-    c = re.sub(r"\s[12]?>\s*/dev/null|\s2>&1", " ", cmd)
+ENV_PREFIX = re.compile(r"^\s*(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)+")
+
+
+def _read_only(cmd, ctx):
+    """True when every piece of a command chain only reads, runs the tests, or writes into the run folder."""
+    c = cmd.split("\n", 1)[0] if "<<" in cmd else cmd  # a heredoc body is data, not commands
+    c = re.sub(r"\s[12]?>\s*/dev/null|\s2>&1", " ", c)
+    run_folder = os.path.join(ctx.workdir, ".duo")
+    for m in list(re.finditer(r"(?<![<\d&])>>?\s*([^\s;&|]+)", c)):
+        if not _inside(_abs(m.group(1).strip("'\""), ctx), run_folder):
+            return False
+        c = c.replace(m.group(0), " ")
     if re.search(r">|`|\$\(|\btee\b|\bsed\s+-i", c):
         return False
     for part in re.split(r"&&|\|\||;|\|", c):
-        p = part.strip().strip("()").strip()
+        p = ENV_PREFIX.sub("", part.strip().strip("()").strip())
         if not p:
             continue
         if not any(p == r or p.startswith(r + " ") for r in READ_ONLY + TESTS + SAFE_PIPE_TARGETS):
@@ -125,7 +134,7 @@ def _read_only(cmd):
 
 
 def _bash(req, ctx):
-    cmd = unwrap(req.input.get("command", ""))
+    cmd = ENV_PREFIX.sub("", unwrap(req.input.get("command", "")))
     decision, why = guard.decide(cmd)
     if decision == "deny":
         return "block", why
@@ -143,7 +152,7 @@ def _bash(req, ctx):
             if t == "<recursive>" or any(ch in t for ch in "*?[") or p in ctx.existed or os.path.isdir(p) \
                     or not _inside(p, ctx.workdir):
                 return "card", f"This command deletes {t if t != '<recursive>' else 'a folder'}, which was there before this run."
-    if ctx.phase == "plan" and not _read_only(cmd):
+    if ctx.phase == "plan" and not _read_only(cmd, ctx):
         return "card", "The plan is not approved yet, and this command may change things."
     return "allow", ""
 

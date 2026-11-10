@@ -134,3 +134,13 @@ class PlanPhaseChains(unittest.TestCase):
         self.assertEqual(bash("ls; python3 setup.py install", phase="plan"), "card")
         self.assertEqual(bash("sed -i s/a/b/ a.py", phase="plan"), "card")
         self.assertEqual(bash("echo $(rm a)", phase="plan"), "card")
+
+
+class SmokeFixes(unittest.TestCase):
+    def test_env_prefix_ignored(self):
+        self.assertEqual(bash("PYTHONDONTWRITEBYTECODE=1 python3 -m unittest -v", phase="plan"), "allow")
+        self.assertEqual(bash("FOO=1 BAR=x git push", phase="build"), "card")
+
+    def test_plan_phase_write_into_run_folder_allowed(self):
+        self.assertEqual(bash("cat > .duo/r1/plan.md <<'EOF'\n- [ ] x\nEOF", phase="plan"), "allow")
+        self.assertEqual(bash("cat > notes.md <<'EOF'\nx\nEOF", phase="plan"), "card")

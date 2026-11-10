@@ -30,7 +30,8 @@ def audit(events, workdir):
             detail = unwrap(e.get("detail", ""))
             rows.append((e["ts"], who, e.get("name", "tool"), detail, e.get("status", "")))
             if any(re.search(rx, detail, re.I) for rx, _ in OUTWARD):
-                flags.append(f"{_t(e['ts'])} {who} ran an outward command: `{_cell(detail)}`")
+                did = "tried an outward command (declined)" if e.get("status") == "declined" else "ran an outward command"
+                flags.append(f"{_t(e['ts'])} {who} {did}: `{_cell(detail)}`")
             if str(e.get("name", "")).startswith("mcp__"):
                 flags.append(f"{_t(e['ts'])} {who} used the tool `{e['name']}` {_cell(e.get('detail', ''))}")
         elif k == "file_change":

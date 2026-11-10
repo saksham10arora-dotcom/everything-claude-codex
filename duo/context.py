@@ -74,6 +74,9 @@ How to work together:
 - To talk to {other}, just write your message as normal text in your reply. duo delivers everything you write to
   {other} and shows it to {user}. Do not use any messaging, mail or agent tool to reach {other}.
 - Keep messages to {other} short and concrete. Do the work, then talk about what you found.
+- Every message you write becomes a turn for {other}. If a message needs no answer (an acknowledgement, "still
+  waiting"), reply with exactly [[QUIET]] and nothing else. duo does not forward it. Never trade status updates.
+- Messages prefixed [{user} to {other}, so you know] were sent to {other}; they are for your information.
 
 Phases:
 1. Plan first. Together, write one joint plan as a markdown checklist in {plan}. Where you still disagree, write
