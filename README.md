@@ -35,7 +35,7 @@ you talk to either agent  ->  both remember  ->  your notes answer  ->  your pho
 | Agents, one memory | **2** | Claude Code and Codex read the same memory and see each other's latest messages |
 | Phone access | **1 repo** | Your private GitHub repo is the bridge. No server, no new app |
 | Health checks | **16+** | `doctor` checks every part at the start of every session and tells you the exact fix |
-| Tests | **38** | Hooks, installer and doctor tested against the real Claude Code payload, on macOS and Linux |
+| Tests | **211** | Hooks, installer and doctor tested against the real Claude Code payload, on macOS and Linux |
 
 ## Install in 30 seconds
 
@@ -95,7 +95,7 @@ everything-claude-codex/
 |-- statusline/      context bar + unread mail from Codex
 |-- templates/       CLAUDE.md, AGENTS.md (Codex boots knowing what Claude knows), hot.md
 |-- scripts/         install.py, doctor.py
-`-- tests/           38 tests, macOS + Linux, Python 3.9 to 3.12
+`-- tests/           211 tests, macOS + Linux, Python 3.9 to 3.12
 ```
 
 ## How it fits together
