@@ -403,5 +403,53 @@ class UninstallDryRun(unittest.TestCase):
         self.assertIn("would remove link", out)
 
 
+class DoctorJson(unittest.TestCase):
+    """doctor.py --json emits valid, well-structured JSON."""
+
+    def _run_json(self):
+        vault = tempfile.mkdtemp()
+        result = subprocess.run(
+            [sys.executable, os.path.join(ROOT, "scripts", "doctor.py"), "--vault", vault, "--json"],
+            capture_output=True, text=True,
+        )
+        return result
+
+    def test_output_is_valid_json(self):
+        result = self._run_json()
+        try:
+            data = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            self.fail(f"--json output is not valid JSON: {result.stdout!r}")
+        self.assertIsInstance(data, dict)
+
+    def test_json_has_required_keys(self):
+        result = self._run_json()
+        data = json.loads(result.stdout)
+        for key in ("checks", "passed", "total", "ok"):
+            self.assertIn(key, data, f"missing key: {key}")
+
+    def test_json_checks_have_name_and_ok(self):
+        result = self._run_json()
+        data = json.loads(result.stdout)
+        self.assertIsInstance(data["checks"], list)
+        self.assertGreater(len(data["checks"]), 0)
+        for item in data["checks"]:
+            self.assertIn("name", item, f"check entry missing 'name': {item}")
+            self.assertIn("ok", item, f"check entry missing 'ok': {item}")
+
+    def test_json_counts_are_consistent(self):
+        result = self._run_json()
+        data = json.loads(result.stdout)
+        # passed + failed == total (warnings with ok=None don't count)
+        countable = [c for c in data["checks"] if c["ok"] is not None]
+        self.assertEqual(data["total"], len(countable))
+        self.assertEqual(data["passed"], sum(1 for c in countable if c["ok"]))
+
+    def test_human_output_suppressed(self):
+        result = self._run_json()
+        # stdout must be pure JSON — no "ECX doctor ·" header
+        self.assertNotIn("ECX doctor", result.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()

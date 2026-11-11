@@ -26,16 +26,19 @@ HOME = os.path.expanduser("~")
 DATA = os.path.expanduser(os.environ.get("ECX_DATA", "~/.ecx/index"))
 results = []
 failures = []
+_checks_log: list = []   # populated when --json is active
 
 
 def check(ok, name, fix=""):
     results.append(ok)
     if not ok:
         failures.append((name, fix))
+    _checks_log.append({"name": name, "ok": ok, "fix": fix if not ok else ""})
     print(f"  {'✓' if ok else '✗'} {name}" + ("" if ok or not fix else f"\n      fix: {fix}"))
 
 
 def warn(name, note):
+    _checks_log.append({"name": name, "ok": None, "note": note})
     print(f"  ! {name}\n      {note}")
 
 
@@ -95,11 +98,25 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--vault", default=os.environ.get("ECX_VAULT", os.path.join(HOME, "vault")))
     ap.add_argument("--hook", action="store_true", help="SessionStart mode: silent when healthy, a short warning when not")
+    ap.add_argument("--json", action="store_true", help="Emit a JSON summary to stdout instead of human-readable text")
     a = ap.parse_args()
     vault = os.path.realpath(os.path.expanduser(a.vault))
     if a.hook:
         session_start(vault)
         return
+    if a.json:
+        # Suppress human-readable output; collect only structured data
+        with contextlib.redirect_stdout(io.StringIO()):
+            run(vault)
+        passed = results.count(True)
+        total = len(results)
+        print(json.dumps({
+            "checks": _checks_log,
+            "passed": passed,
+            "total": total,
+            "ok": passed == total,
+        }, indent=2))
+        sys.exit(0 if passed == total else 1)
     print(f"\nECX doctor · vault: {vault}\n")
     run(vault)
     bad = results.count(False)
