@@ -28,8 +28,8 @@ CONFIG = os.path.join(STATE_DIR, "config.json")      # {"chat_md": "<markdown fi
 SEND_LIMIT_PER_HOUR = 30                             # stops two agents ping-ponging forever
 AGENT_NAMES = {"claude": "Claude", "codex": "Codex"}
 USER_NAME = os.environ.get("AGENT_SYNC_USER", "the user")
-CLAUDE_GLOB = os.path.join(HOME, ".claude/projects/*/*.jsonl")
-CODEX_GLOB = os.path.join(HOME, ".codex/sessions/*/*/*/*.jsonl")
+CLAUDE_GLOB = os.path.join(os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(HOME, ".claude"), "projects/*/*.jsonl")
+CODEX_GLOB = os.path.join(os.environ.get("CODEX_HOME") or os.path.join(HOME, ".codex"), "sessions/*/*/*/*.jsonl")
 
 HOOK_FILES = {"claude": ".claude/settings.json", "codex": ".codex/hooks.json"}
 
