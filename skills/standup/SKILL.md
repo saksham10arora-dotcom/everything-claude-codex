@@ -6,11 +6,11 @@ description: Use when the user says "/standup", "standup", "stand-up", "daily st
 # /standup: the 60-second standup briefing
 
 Read in parallel:
-1. `daily/<yesterday>.md` — what was done yesterday
-2. `daily/<today>.md` — what is planned for today
-3. `.remember/hot.md` — active projects, tracks, hard rules (blockers live here)
+1. `daily/<yesterday>.md`: what was done yesterday
+2. `daily/<today>.md`: what is planned for today
+3. `.remember/hot.md`: active projects, tracks, hard rules (blockers live here)
 
-Date arithmetic: yesterday = today − 1 calendar day. Use ISO format `YYYY-MM-DD` for filenames.
+Date arithmetic: yesterday = today - 1 calendar day. Use ISO format `YYYY-MM-DD` for filenames.
 
 ## Output (exactly this, no intro)
 
