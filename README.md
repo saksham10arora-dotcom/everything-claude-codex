@@ -129,7 +129,14 @@ A router picks the right one. All of it re-indexes every night.
 ### 4. Phone vault: laptop shut, still works
 After every reply, your notes and a copy of your memory sync to your private GitHub repo. On your phone, Claude (Claude app) and Codex (ChatGPT app) work on that repo in the cloud. Say "I met Adi, he's at X": one note lands in `inbox/`, a GitHub Action merges it, and Claude files it next time you open your laptop.
 
-The two phone apps differ in one step. The Claude app pushes the note on its own. Codex in the ChatGPT app commits it in its cloud copy, then asks before touching your real repo: reply `yes, publish it to master` (or `open a PR with only that file`) and the auto-merge takes it from there.
+**Codex in the ChatGPT app needs a one-time setup** that happens in your ChatGPT account, so no installer can do it for you:
+1. Install the **ChatGPT Codex Connector** GitHub app and give it access to only your vault repo.
+2. In ChatGPT, open Settings > Codex Cloud > Create environment, pick the vault repo, leave the install script empty, turn internet access off, then Save draft and Publish.
+3. Start each Codex chat with `Read AGENTS.md first and follow section 7.` Codex Cloud does not open AGENTS.md on its own, and without that line it may answer from a connected app like Gmail instead of your notes. Save the line as a text shortcut on your phone.
+
+The Claude app (Claude Code on the web) reads the repo's CLAUDE.md on its own, so it needs no extra line.
+
+The two phone apps also differ in one capture step. The Claude app pushes the note on its own. Codex in the ChatGPT app commits it in its cloud copy, then asks before touching your real repo: reply `yes, publish it to master` (or `open a PR with only that file`) and the auto-merge takes it from there.
 
 ### 5. Self-healing hooks
 - **Tests before done:** when Claude Code or Codex tries to finish, your tests run first. If they fail, the agent is sent back with the failing output and has to fix it. It runs only when something changed, finds npm, pytest, unittest, cargo, go and make tests on its own, and gives up after 3 tries instead of looping. Set the command per repo in `.ecx/test-command` (or `off`).
