@@ -56,6 +56,8 @@ Want to see the plan first? Add `--dry-run` to list every file the installer wou
 
 Then open Claude Code in your vault and type `/boot`.
 
+If ECX saves you time, a [star](https://github.com/saksham10arora-dotcom/everything-claude-codex/stargazers) helps other people find it.
+
 ## Things your setup can't do yet
 
 | | Most setups | ECX |
