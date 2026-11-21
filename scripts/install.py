@@ -14,8 +14,12 @@ import re
 import shutil
 import subprocess
 import sys
+import urllib.request
 
 ECX = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Opt-in install count: one download of a tiny file from a GitHub release. GitHub's own
+# download counter is the number; nothing about the user is sent.
+COUNT_URL = "https://github.com/saksham10arora-dotcom/everything-claude-codex/releases/download/install-count/ping.txt"
 HOME = os.path.expanduser("~")
 PY = sys.executable
 DRY = False   # set by --dry-run: report every change, make none
@@ -90,6 +94,26 @@ def q(path):
     return f'"{path}"'
 
 
+def count_install(marker, opener=None):
+    """Only runs with --count-install. Counts once per machine (marker file) and never fails the install."""
+    if os.path.exists(marker):
+        say("i", "this machine was already counted")
+        return False
+    if DRY:
+        say("+", "would count this install (one request to GitHub, nothing about you is sent)")
+        return False
+    try:
+        (opener or urllib.request.urlopen)(COUNT_URL, timeout=3).read(64)
+    except Exception:
+        say("i", "could not reach GitHub, install not counted (it will try again next run)")
+        return False
+    mkdir(os.path.dirname(marker))
+    with open(marker, "w") as f:
+        f.write(datetime.date.today().isoformat() + "\n")
+    say("+", "install counted, thank you")
+    return True
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--vault", default=os.path.join(HOME, "vault"))
@@ -98,6 +122,7 @@ def main():
     ap.add_argument("--with-cron", action="store_true", help="re-index the vault every evening")
     ap.add_argument("--with-phone", action="store_true", help="sync the vault to its GitHub remote after every reply")
     ap.add_argument("--dry-run", action="store_true", help="print every file it would write, link or merge, and change nothing")
+    ap.add_argument("--count-install", action="store_true", help="add this install to the public install count (one request to GitHub, no data sent)")
     a = ap.parse_args()
     global DRY
     DRY = a.dry_run
@@ -250,6 +275,10 @@ def main():
                 shutil.copy(os.path.join(ECX, "phone-vault", "inbox-automerge.yml"), wf)
         say("+", "vault syncs to its GitHub remote after every reply; phone captures auto-merge into inbox/")
         say("i", "make sure the vault is a git repo with a PRIVATE GitHub remote before you rely on this")
+
+    if a.count_install:
+        print("Install count")
+        count_install(os.path.join(HOME, ".ecx", "counted"))
 
     if DRY:
         print("\nDry run finished. Nothing was changed. Re-run without --dry-run to apply.\n")
