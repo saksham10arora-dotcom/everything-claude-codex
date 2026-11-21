@@ -35,7 +35,7 @@ you talk to either agent  ->  both remember  ->  your notes answer  ->  your pho
 | Agents, one memory | **2** | Claude Code and Codex read the same memory and see each other's latest messages |
 | Phone access | **1 repo** | Your private GitHub repo is the bridge. No server, no new app |
 | Health checks | **16+** | `doctor` checks every part at the start of every session and tells you the exact fix |
-| Tests | **211** | Hooks, installer and doctor tested against the real Claude Code payload, on macOS and Linux |
+| Tests | **215** | Hooks, installer and doctor tested against the real Claude Code payload, on macOS and Linux |
 
 ## Install in 30 seconds
 
@@ -44,7 +44,7 @@ git clone https://github.com/saksham10arora-dotcom/everything-claude-codex ~/ecx
 cd ~/ecx && ./install.sh
 ```
 
-It asks two questions (where your notes live, your first name) and wires everything in. It's safe to re-run, never overwrites your files, and backs up every settings file it touches.
+It asks three questions (where your notes live, your first name, and whether to add your install to the public count) and wires everything in. It's safe to re-run, never overwrites your files, and backs up every settings file it touches.
 
 Want the full stack?
 
@@ -97,7 +97,7 @@ everything-claude-codex/
 |-- statusline/      context bar + unread mail from Codex
 |-- templates/       CLAUDE.md, AGENTS.md (Codex boots knowing what Claude knows), hot.md
 |-- scripts/         install.py, doctor.py
-`-- tests/           211 tests, macOS + Linux, Python 3.9 to 3.12
+`-- tests/           215 tests, macOS + Linux, Python 3.9 to 3.12
 ```
 
 ## How it fits together
@@ -186,13 +186,17 @@ ECX plays well with these (not bundled, all worth installing): [superpowers](htt
 
 ## FAQ
 
-**Is my data sent anywhere?** Memory, hooks, agent-sync and search by meaning and image run entirely on your machine. Phone mode pushes only to a GitHub repo you own (keep it private). The relationship graph uses Ollama; its default model runs on Ollama's free cloud, so note text is sent there while indexing. Set `ECX_LLM_MODEL` to a local model to keep everything on your laptop.
+**Is my data sent anywhere?** Memory, hooks, agent-sync and search by meaning and image run entirely on your machine. Phone mode pushes only to a GitHub repo you own (keep it private). The relationship graph uses Ollama; its default model runs on Ollama's free cloud, so note text is sent there while indexing. Set `ECX_LLM_MODEL` to a local model to keep everything on your laptop. The install count is off unless you say yes (or pass `--count-install`): it downloads one tiny file from this repo's GitHub releases, once per machine, and GitHub's download counter is the count. Nothing about you or your vault is sent.
 
 **Do I need Codex?** No. Everything except agent-sync works with Claude Code alone.
 
 **Does it overwrite my config?** Never. It merges, skips anything already there, and saves a `.ecx-bak` copy first.
 
 **How do I remove it?** Run `./install.sh --uninstall --vault ~/vault` with the same vault you installed with. It restores every `.ecx-bak` file and removes the skill links that point into this repo in `~/.claude/skills` and `~/.agents/skills`. Skills you added yourself are left alone.
+
+## Team setup
+
+Want ECX running for a whole team: one shared vault, Claude and Codex handing work to each other, your own skills and hooks? Paid setup for small teams is available. [Message @nerfsaksham on X](https://x.com/nerfsaksham) or [open an issue](https://github.com/saksham10arora-dotcom/everything-claude-codex/issues/new?title=Team%20setup) with your team size and the tools you use.
 
 ## Contributing
 
