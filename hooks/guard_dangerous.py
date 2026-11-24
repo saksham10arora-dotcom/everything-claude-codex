@@ -28,11 +28,11 @@ ASK = [
 
 
 def _asks_for_git_clean(cmd):
-    for match in re.finditer(r"\\bgit\\s+clean\\b(?P<args>[^;&|]*)", cmd, re.I):
+    for match in re.finditer(r"\bgit\s+clean\b(?P<args>[^;&|]*)", cmd, re.I):
         args = match.group("args")
-        if re.search(r"(?:^|\\s)--dry-run(?:\\s|$)", args, re.I):
+        if re.search(r"(?:^|\s)--dry-run(?:\s|$)", args, re.I):
             continue
-        options = re.findall(r"(?<!\\S)-([a-z]+)\\b", args, re.I)
+        options = re.findall(r"(?<!\S)-([a-z]+)\b", args, re.I)
         flags = "".join(options).lower()
         if "n" not in flags and "f" in flags and "d" in flags:
             return True
