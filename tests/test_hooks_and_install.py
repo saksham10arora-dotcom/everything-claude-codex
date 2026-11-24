@@ -37,6 +37,16 @@ class Guard(unittest.TestCase):
         for c in ("rm -rf build", "git push --force origin main", "git reset --hard HEAD~3", "DROP TABLE users;"):
             self.assertEqual(decision(c), "ask", c)
 
+    def test_asks_before_git_clean_with_force_and_directories(self):
+        for c in ("git clean -fdx", "git clean -xdf", "git clean -ffd",
+                  "git clean -df", "git clean -f -d", "git clean -d -f"):
+            self.assertEqual(decision(c), "ask", c)
+
+    def test_allows_git_clean_dry_run_and_non_destructive_options(self):
+        for c in ("git clean -n", "git clean -nf", "git clean -nfd",
+                  "git clean -fdn", "git clean -f", "git clean -d"):
+            self.assertEqual(decision(c), "allow", c)
+
     def test_allows_normal(self):
         for c in ("ls -la", "npm test", "git push origin main", "python3 -m pytest", "find . -name \"*.py\"", "find / -name \"*.py\""):
             self.assertEqual(decision(c), "allow", c)
