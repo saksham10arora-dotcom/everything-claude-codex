@@ -28,13 +28,33 @@ ASK = [
 
 
 def _asks_for_git_clean(cmd):
-    for match in re.finditer(r"\bgit\s+clean\b(?P<args>[^;&|]*)", cmd, re.I):
-        args = match.group("args")
-        if re.search(r"(?:^|\s)--dry-run(?:\s|$)", args, re.I):
+    # Evaluate each shell command independently so a dry-run flag cannot mask
+    # a destructive git clean in a later command.
+    for command in re.split(r"\r?\n|[;&|]+", cmd):
+        match = re.search(r"\bgit\s+clean\b(?P<args>.*)", command, re.I)
+        if not match:
             continue
-        options = re.findall(r"(?<!\S)-([a-z]+)\b", args, re.I)
-        flags = "".join(options).lower()
-        if "n" not in flags and "f" in flags and "d" in flags:
+
+        # Parse only options before --; anything after it is a pathspec.
+        tokens = re.findall(r"""(?:'[^']*'|"[^"]*"|\S+)""", match.group("args"))
+        options = []
+        for token in tokens:
+            if token == "--":
+                break
+            options.append(token)
+
+        short_flags = "".join(
+            token[1:] for token in options
+            if token.startswith("-") and not token.startswith("--")
+        ).lower()
+        if "n" in short_flags or any(token.lower() == "--dry-run" for token in options):
+            continue
+
+        has_force = "f" in short_flags or any(
+            token.lower() == "--force" for token in options
+        )
+        has_directories = "d" in short_flags
+        if has_force and has_directories:
             return True
     return False
 

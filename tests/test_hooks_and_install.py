@@ -47,6 +47,21 @@ class Guard(unittest.TestCase):
                   "git clean -fdn", "git clean -f", "git clean -d"):
             self.assertEqual(decision(c), "allow", c)
 
+    def test_git_clean_flags_do_not_leak_between_commands(self):
+        for c in ("git clean -n\ngit clean -fdx", "git clean -fdx\ngit clean -n"):
+            self.assertEqual(decision(c), "ask", c)
+
+    def test_git_clean_end_of_options_treats_dry_run_tokens_as_pathspecs(self):
+        for c in ("git clean -fd -- -n", "git clean -fd -- --dry-run"):
+            self.assertEqual(decision(c), "ask", c)
+
+    def test_git_clean_long_force_option_is_detected(self):
+        self.assertEqual(decision("git clean --force -d"), "ask")
+
+    def test_allows_real_git_clean_dry_runs(self):
+        for c in ("git clean --dry-run -fd", "git clean -nfd", "git clean -nf"):
+            self.assertEqual(decision(c), "allow", c)
+
     def test_allows_normal(self):
         for c in ("ls -la", "npm test", "git push origin main", "python3 -m pytest", "find . -name \"*.py\"", "find / -name \"*.py\""):
             self.assertEqual(decision(c), "allow", c)
