@@ -27,10 +27,24 @@ ASK = [
 ]
 
 
+def _asks_for_git_clean(cmd):
+    for match in re.finditer(r"\\bgit\\s+clean\\b(?P<args>[^;&|]*)", cmd, re.I):
+        args = match.group("args")
+        if re.search(r"(?:^|\\s)--dry-run(?:\\s|$)", args, re.I):
+            continue
+        options = re.findall(r"(?<!\\S)-([a-z]+)\\b", args, re.I)
+        flags = "".join(options).lower()
+        if "n" not in flags and "f" in flags and "d" in flags:
+            return True
+    return False
+
+
 def decide(cmd):
     for rx, why in BLOCK:
         if re.search(rx, cmd, re.I):
             return "deny", f"Blocked: this command {why}. Ask the user to run it themselves if they really mean it."
+    if _asks_for_git_clean(cmd):
+        return "ask", "This command removes untracked files and directories."
     for rx, why in ASK:
         if re.search(rx, cmd, re.I):
             return "ask", f"This command {why}."
