@@ -27,10 +27,59 @@ ASK = [
 ]
 
 
+def _asks_for_git_clean(cmd):
+    # Evaluate each shell command independently so a dry-run flag cannot mask
+    # a destructive git clean in a later command.
+    for command in re.split(r"\r?\n|[;&|]+", cmd):
+        match = re.search(r"\bgit\s+clean\b(?P<args>.*)", command, re.I)
+        if not match:
+            continue
+
+        # Parse only options before --; anything after it is a pathspec.
+        tokens = re.findall(r"""(?:'[^']*'|"[^"]*"|\S+)""", match.group("args"))
+        options = []
+        for token in tokens:
+            if token == "--":
+                break
+            options.append(token)
+
+        # -e/--exclude consumes a pattern, which may itself start with a dash.
+        # A pattern containing "n" must not turn a destructive clean into a dry run.
+        short_flags = ""
+        long_flags = []
+        skip_pattern = False
+        for token in options:
+            if skip_pattern:
+                skip_pattern = False
+                continue
+            if token == "--exclude":
+                skip_pattern = True
+                continue
+            if token.startswith("--exclude="):
+                continue
+            if token.startswith("--"):
+                long_flags.append(token)
+            elif token.startswith("-"):
+                flags, sep, pattern = token[1:].partition("e")
+                short_flags += flags
+                if sep and not pattern:
+                    skip_pattern = True
+        if "n" in short_flags or "--dry-run" in long_flags:
+            continue
+
+        has_force = "f" in short_flags or "--force" in long_flags
+        has_directories = "d" in short_flags
+        if has_force and has_directories:
+            return True
+    return False
+
+
 def decide(cmd):
     for rx, why in BLOCK:
         if re.search(rx, cmd, re.I):
             return "deny", f"Blocked: this command {why}. Ask the user to run it themselves if they really mean it."
+    if _asks_for_git_clean(cmd):
+        return "ask", "This command removes untracked files and directories."
     for rx, why in ASK:
         if re.search(rx, cmd, re.I):
             return "ask", f"This command {why}."
@@ -55,3 +104,4 @@ if __name__ == "__main__":
     except Exception:
         pass
     sys.exit(0)
+

@@ -37,6 +37,38 @@ class Guard(unittest.TestCase):
         for c in ("rm -rf build", "git push --force origin main", "git reset --hard HEAD~3", "DROP TABLE users;"):
             self.assertEqual(decision(c), "ask", c)
 
+    def test_asks_before_git_clean_with_force_and_directories(self):
+        for c in ("git clean -fdx", "git clean -xdf", "git clean -ffd",
+                  "git clean -df", "git clean -f -d", "git clean -d -f"):
+            self.assertEqual(decision(c), "ask", c)
+
+    def test_allows_git_clean_dry_run_and_non_destructive_options(self):
+        for c in ("git clean -n", "git clean -nf", "git clean -nfd",
+                  "git clean -fdn", "git clean -f", "git clean -d"):
+            self.assertEqual(decision(c), "allow", c)
+
+    def test_git_clean_flags_do_not_leak_between_commands(self):
+        for c in ("git clean -n\ngit clean -fdx", "git clean -fdx\ngit clean -n"):
+            self.assertEqual(decision(c), "ask", c)
+
+    def test_git_clean_end_of_options_treats_dry_run_tokens_as_pathspecs(self):
+        for c in ("git clean -fd -- -n", "git clean -fd -- --dry-run"):
+            self.assertEqual(decision(c), "ask", c)
+
+    def test_git_clean_long_force_option_is_detected(self):
+        self.assertEqual(decision("git clean --force -d"), "ask")
+
+    def test_git_clean_exclude_patterns_are_not_flags(self):
+        for c in ("git clean -fd -e -n", "git clean -fd -e --dry-run",
+                  "git clean -fd --exclude -n", "git clean -fd --exclude=--dry-run",
+                  "git clean -fde-n", "git clean -e-n -fd"):
+            self.assertEqual(decision(c), "ask", c)
+        self.assertEqual(decision("git clean -nfd -e -n"), "allow")
+
+    def test_allows_real_git_clean_dry_runs(self):
+        for c in ("git clean --dry-run -fd", "git clean -nfd", "git clean -nf"):
+            self.assertEqual(decision(c), "allow", c)
+
     def test_allows_normal(self):
         for c in ("ls -la", "npm test", "git push origin main", "python3 -m pytest", "find . -name \"*.py\"", "find / -name \"*.py\""):
             self.assertEqual(decision(c), "allow", c)
@@ -442,3 +474,4 @@ class UninstallDryRun(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
