@@ -11,7 +11,8 @@ Runs only in a git repo, only when something changed since the last green run
 (HEAD, tracked changes, untracked files), and only when it finds a test command:
     .ecx/test-command   one line in the repo ("off" turns the hook off there)
     $ECX_TEST_CMD
-    package.json "test" script, pytest config, tests/ with test_*.py,
+    package.json "test" script, bun.lockb/bun.lock (bun test), deno.json(c)
+    (deno test), pytest config, tests/ with test_*.py,
     Cargo.toml, go.mod, a Makefile with a "test:" target
 If the test runner itself is missing (exit 127) it tells you instead of blocking.
 After 3 failed tries in a row it lets the agent stop and tells you, instead of
@@ -91,6 +92,10 @@ def test_command(root):
         return "go test ./..."
     if re.search(r"^test:", read(root, "Makefile"), re.M):
         return "make test"
+    if has("bun.lockb") or has("bun.lock"):
+        return "bun test"
+    if has("deno.json") or has("deno.jsonc"):
+        return "deno test"
     return None
 
 

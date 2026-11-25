@@ -221,6 +221,43 @@ class TestsBeforeDone(unittest.TestCase):
         self.assertEqual(self.run_count(), 0)
 
 
+class DetectBunAndDeno(unittest.TestCase):
+    """tests_before_done picks the test command for Bun and Deno projects."""
+
+    def detect(self, files):
+        """files: {relative path: content}. Returns the command test_command picks."""
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("tests_before_done", os.path.join(HOOKS, "tests_before_done.py"))
+        hook = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(hook)
+        with tempfile.TemporaryDirectory() as root:
+            for name, content in files.items():
+                path = os.path.join(root, name)
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path, "w") as f:
+                    f.write(content)
+            return hook.test_command(root)
+
+    def test_bun_and_deno_projects(self):
+        self.assertEqual(self.detect({"bun.lockb": ""}), "bun test")
+        self.assertEqual(self.detect({"bun.lock": ""}), "bun test")
+        self.assertEqual(self.detect({"deno.json": "{}\n"}), "deno test")
+        self.assertEqual(self.detect({"deno.jsonc": "{}\n"}), "deno test")
+
+    def test_package_test_script_wins_over_bun(self):
+        pkg = '{"scripts": {"test": "jest"}}\n'
+        self.assertEqual(self.detect({"package.json": pkg, "bun.lockb": ""}), "npm test --silent")
+
+    def test_existing_detections_win_over_bun_and_deno(self):
+        self.assertEqual(self.detect({"bun.lock": "", "pytest.ini": ""}), "python3 -m pytest -q")
+        self.assertEqual(self.detect({"deno.json": "{}\n", "conftest.py": ""}), "python3 -m pytest -q")
+        self.assertEqual(self.detect({"bun.lockb": "", "tests/test_a.py": ""}),
+                         "python3 -m unittest discover -s tests")
+        self.assertEqual(self.detect({"deno.json": "{}\n", "Cargo.toml": ""}), "cargo test -q")
+        self.assertEqual(self.detect({"bun.lock": "", "go.mod": ""}), "go test ./...")
+        self.assertEqual(self.detect({"bun.lock": "", "Makefile": "test:\n\techo ok\n"}), "make test")
+
+
 class SessionStartDoctor(unittest.TestCase):
     """doctor.py --hook: silent when healthy, a warning with the fix when not."""
 
