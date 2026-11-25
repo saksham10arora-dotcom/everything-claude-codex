@@ -35,7 +35,7 @@ you talk to either agent  ->  both remember  ->  your notes answer  ->  your pho
 | Agents, one memory | **2** | Claude Code and Codex read the same memory and see each other's latest messages |
 | Phone access | **1 repo** | Your private GitHub repo is the bridge. No server, no new app |
 | Health checks | **16+** | `doctor` checks every part at the start of every session and tells you the exact fix |
-| Tests | **215** | Hooks, installer and doctor tested against the real Claude Code payload, on macOS and Linux |
+| Tests | **238** | Hooks, installer and doctor tested against the real Claude Code payload, on macOS and Linux |
 
 ## Install in 30 seconds
 
@@ -97,7 +97,7 @@ everything-claude-codex/
 |-- statusline/      context bar + unread mail from Codex
 |-- templates/       CLAUDE.md, AGENTS.md (Codex boots knowing what Claude knows), hot.md
 |-- scripts/         install.py, doctor.py
-`-- tests/           215 tests, macOS + Linux, Python 3.9 to 3.12
+`-- tests/           238 tests, macOS + Linux, Python 3.9 to 3.12
 ```
 
 ## How it fits together
@@ -227,9 +227,17 @@ Got a skill or hook in your own setup that others would want? Share it in [Discu
 
 Everyone whose code is in ECX:
 
-<a href="https://github.com/saksham10arora-dotcom/everything-claude-codex/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=saksham10arora-dotcom/everything-claude-codex" alt="ECX contributors" />
-</a>
+<!-- wall:contributors:start -->
+<p>
+<a href="https://github.com/saksham10arora-dotcom"><img src="https://github.com/saksham10arora-dotcom.png?size=80" width="40" height="40" alt="saksham10arora-dotcom" title="saksham10arora-dotcom" /></a>
+<a href="https://github.com/Satyanshgaur"><img src="https://github.com/Satyanshgaur.png?size=80" width="40" height="40" alt="Satyanshgaur" title="Satyanshgaur" /></a>
+<a href="https://github.com/Vineetpandey0"><img src="https://github.com/Vineetpandey0.png?size=80" width="40" height="40" alt="Vineetpandey0" title="Vineetpandey0" /></a>
+<a href="https://github.com/Suraj-codes1410"><img src="https://github.com/Suraj-codes1410.png?size=80" width="40" height="40" alt="Suraj-codes1410" title="Suraj-codes1410" /></a>
+<a href="https://github.com/jay23606"><img src="https://github.com/jay23606.png?size=80" width="40" height="40" alt="jay23606" title="jay23606" /></a>
+<a href="https://github.com/Aaqibhafeezkhan"><img src="https://github.com/Aaqibhafeezkhan.png?size=80" width="40" height="40" alt="Aaqibhafeezkhan" title="Aaqibhafeezkhan" /></a>
+<a href="https://github.com/AyhamJo7"><img src="https://github.com/AyhamJo7.png?size=80" width="40" height="40" alt="AyhamJo7" title="AyhamJo7" /></a>
+</p>
+<!-- wall:contributors:end -->
 
 Everyone who starred it, thank you:
 
