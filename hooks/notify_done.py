@@ -4,12 +4,35 @@
 """
 import json
 import os
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone
 
 MIN_SECONDS = 45
 TAIL = 2_000_000
+
+
+def parse_quiet_hours(value):
+    """'23-7' -> (23, 7). Hours are 0-23; the window is start-inclusive, end-exclusive
+    and may wrap past midnight. Unset or invalid values return None (never raise)."""
+    m = re.fullmatch(r"\s*(\d{1,2})\s*-\s*(\d{1,2})\s*", value or "")
+    if not m:
+        return None
+    start, end = int(m.group(1)), int(m.group(2))
+    if start > 23 or end > 23:
+        return None
+    return start, end
+
+
+def in_quiet_hours(value, now):
+    window = parse_quiet_hours(value)
+    if not window:
+        return False
+    start, end = window
+    if start <= end:
+        return start <= now.hour < end
+    return now.hour >= start or now.hour < end  # wraps past midnight
 
 
 def tail_entries(path):
@@ -50,6 +73,8 @@ def main():
     t0 = datetime.fromisoformat(started.replace("Z", "+00:00"))
     secs = (datetime.now(timezone.utc) - t0).total_seconds()
     if secs < MIN_SECONDS:
+        return
+    if in_quiet_hours(os.environ.get("ECX_QUIET_HOURS"), datetime.now()):
         return
     project = os.path.basename((hook.get("cwd") or "").rstrip("/")) or "Claude"
     body = " ".join(reply.split())[:140] or "Done"
