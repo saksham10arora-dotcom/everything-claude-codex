@@ -184,9 +184,18 @@ duo solved every issue that either agent solved alone; neither alone got all of 
 
 ECX plays well with these (not bundled, all worth installing): [superpowers](https://github.com/obra/superpowers) (planning, TDD, debugging workflows), [remember](https://github.com/Digital-Process-Tools/claude-remember) (session summaries; ECX triggers it after every reply), [reference](https://github.com/Kuberwastaken/reference) by Kuber (search each agent's full history), [graphify](https://github.com/Graphify-Labs/graphify) (knowledge graph of a codebase), [claude-video](https://github.com/bradautomates/claude-video) (watch any video).
 
+**Obsidian's official agent plugin** ([obsidianmd/obsidian-skills](https://github.com/obsidianmd/obsidian-skills)) pairs well with ECX's vault. It teaches both agents Obsidian Markdown, Bases, Canvas and the Obsidian CLI (search and backlinks through Obsidian's own index):
+
+```bash
+claude plugin marketplace add obsidianmd/obsidian-skills && claude plugin install obsidian@obsidian-skills
+codex plugin marketplace add obsidianmd/obsidian-skills   # then install Obsidian from Codex's plugin directory
+```
+
 ## FAQ
 
 **Is my data sent anywhere?** Memory, hooks, agent-sync and search by meaning and image run entirely on your machine. Phone mode pushes only to a GitHub repo you own (keep it private). The relationship graph uses Ollama; its default model runs on Ollama's free cloud, so note text is sent there while indexing. Set `ECX_LLM_MODEL` to a local model to keep everything on your laptop. The install count is off unless you say yes (or pass `--count-install`): it downloads one tiny file from this repo's GitHub releases, once per machine, and GitHub's download counter is the count. Nothing about you or your vault is sent.
+
+**Does Obsidian's official connector replace ECX?** No, they stack. Obsidian's plugin teaches each agent how to read and write Obsidian notes. ECX gives the agents a shared memory and each other's latest messages, loads who you are before your first message, keeps your notes reachable from your phone, and guards the setup. Install both.
 
 **Do I need Codex?** No. Everything except agent-sync works with Claude Code alone.
 
